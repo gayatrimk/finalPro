@@ -1,0 +1,442 @@
+/* styles.css */
+
+/* General Styles */
+body {
+    background-color: #ffe4e6; /* Light Pink */
+    font-family: "Arial", sans-serif;
+  }
+  
+  /* Main Container */
+  .app-container {
+    padding: 16px;
+    min-height: 100vh;
+  }
+  
+  /* Card Style */
+  .card {
+    background-color: white;
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  /*
+  background-color: #fff;
+    border-radius: 16px;
+    padding: 17px;
+    box-shadow: 0 4px 10px #0000001a;
+    margin-left: auto;
+    width: 90%;
+    margin-right: auto;*/
+  /* Location Section */
+  .location {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .location-text {
+    color: gray;
+    font-size: 14px;
+  }
+  
+  .location-address {
+    font-weight: bold;
+  }
+  
+  /* Search Bar */
+  .search-container {
+    position: relative;
+    margin-top: 8px;
+  }
+  
+  .search-input {
+    width: 90%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 30px;
+    font-size: 14px;
+  }
+  
+  .search-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: gray;
+  }
+  
+  /* Categories */
+  .categories {
+    margin-top: 24px;
+  }
+  
+  .categories-title {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+  }
+  
+  .categories-list {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+  
+  /* Category Item */
+  .category-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .category-item img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #f97316;
+    object-fit: cover;
+  }
+  
+  .category-name {
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  
+  /* Offer Section */
+.offer-card {
+    margin-top: 24px;
+    background-color: #ffedd5;
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .offer-text {
+    font-weight: bold;
+    color: #f97316;
+  }
+  
+  .offer-desc {
+    color: black;
+  }
+  
+  .offer-card img {
+    width: 60px;  /* Set a fixed width */
+    height: 60px; /* Set a fixed height */
+    border-radius: 8px;
+    object-fit: cover; /* Ensures it maintains aspect ratio */
+  }
+  
+  /* Top Restaurants */
+  .top-restaurants {
+    margin-top: 24px;
+  }
+  
+  .restaurant-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  
+  .restaurant-item img {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+  }
+  
+  .restaurant-name {
+    font-weight: bold;
+  }
+  
+  .restaurant-time {
+    color: gray;
+    font-size: 12px;
+  }
+  
+  .heart-icon {
+    color: red;
+    font-size: 18px;
+    margin-left: auto;
+  }
+  
+  /* CTA Button */
+  .order-btn {
+    margin-top: 24px;
+    width: 100%;
+    background-color: #f97316;
+    color: white;
+    padding: 12px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  
+  .order-btn:hover {
+    background-color: #ea580c;
+  }
+  
+  /* Scan Product Page */
+.scan-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-color: #fff;
+    min-height: 100vh;
+  }
+  
+  .scan-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .product-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 10px;
+    object-fit: cover;
+    margin-bottom: 10px;
+  }
+  
+  .product-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .chart-container {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .back-btn {
+    margin-top: 20px;
+    text-decoration: none;
+    background-color: #f97316;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+  }
+
+  .tooltip-content {
+    background-color: #fff;
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .tooltip-content p {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+  }
+
+  /*Signup*/
+/* General Styles */
+.container2 {
+  background-color: #fef3c7; /* Light Yellow */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* First Screen */
+/*.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 65vh;
+  background-color: white;
+  padding: 20px;
+}*/
+
+/* General Layout */
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 65vh;
+  background-color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Image Styling (Logo) */
+.logo2 {
+  width: 120px; /* Increased size */
+  height: 120px;
+  max-width: 150px;
+  max-height: 150px;
+  margin-bottom: 15px;
+  object-fit: contain;
+}
+
+/* Title Styling */
+.title2 {
+  font-size: 36px; /* Increased size */
+  font-weight: bold;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Mobile Optimization */
+
+
+
+/* Image Styling */
+/*.logo2 {
+  width: 80px; 
+  height: 80px;
+  max-width: 100px;
+  max-height: 100px;
+  margin-bottom: 10px;
+  object-fit: contain;
+}*/
+
+/* Heading and Text */
+/*.title2 {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.subtitle2 {
+  font-size: 16px;
+  color: #333;
+}*/
+
+/* Welcome Section */
+.welcome-container {
+  background-color: #fbbf24; /* Yellow */
+  width: 100%;
+  height: 35vh;
+  padding: 20px;
+  border-radius: 20px 20px 0 0;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.welcome-text {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+/* Buttons */
+.btn2 {
+    display: inline-block;
+    padding: 15px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 200px;
+    margin: 5px;
+}
+
+
+/* Black Button (Sign In) */
+.btn-black {
+    background-color: #000;
+    color: #fff;
+    border: 2px solid #000;
+  }
+  
+  .btn-black:hover {
+    background-color: #333;
+    border-color: #333;
+  }
+  
+  /* White Button (Sign Up) */
+  .btn-white {
+    background-color: #fff;
+    color: #000;
+    border: 2px solid #000;
+  }
+  
+  .btn-white:hover {
+    background-color: #f0f0f0;
+  }
+/* Auth Page */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 20px;
+  background-color: white;
+}
+
+.auth-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.auth-input {
+  width: 90%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+.auth-button {
+  width: 90%;
+  padding: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  background-color: black;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.auth-button:hover {
+  background-color: #333;
+}
+
+/* Auth Footer */
+.auth-footer {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.auth-link {
+  color: blue;
+  cursor: pointer;
+  font-weight: bold;
+}
