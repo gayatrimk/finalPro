@@ -10,7 +10,7 @@ mongoose
     console.log("Connection success");
 });
 
-const app = require("./app");
+//const app = require("./app");
 app.use(cors());
 
 const port = process.env.PORT;
