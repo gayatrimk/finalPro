@@ -4,19 +4,21 @@ import axios from "axios";
 
 const Search = () => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ name: string; nutrients: { carbohydrates?: number; protein?: number } }[]>([]);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   
   const handleSearch = async () => {
-    if (!query) return;
+    //if (!query) return;
+    if (!query.trim()) return;
     setLoading(true);
     try {
-        const data = await axios.post(`127.0.0.1:3000/products/search`,{ query });
-        
-      console.log(data);
-      setResults(data.data);
+        //const data = await axios.post(`127.0.0.1:3000/products/search`,{ query });
+        const data = await axios.post(`http://192.168.0.102:3000/products/search`, { query });
+      console.log(data.data);
+      setResults(data.data.data);
     } catch (error) {
       console.error("Error fetching data:", error);
+      alert("Failed to fetch data. Please check your internet connection.");
     } finally {
       setLoading(false);
     }
@@ -36,12 +38,23 @@ const Search = () => {
       {loading && <ActivityIndicator size="large" color="#0000ff" />}
       <FlatList 
         data={results} 
-        keyExtractor={(index) => index.toString()} 
+        // keyExtractor={(index) => index.toString()} 
+        keyExtractor={(item, index) => `${item["Brand Name"]}_${index}`} 
+
+
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.nutrient}>Carbs: {item.nutrients?.carbohydrates ?? "N/A"}g</Text>
-            <Text style={styles.nutrient}>Protein: {item.nutrients?.protein ?? "N/A"}g</Text>
+            <Text style={styles.nutrient}>Brand: {item["Brand Name"] ?? "N/A"}</Text>
+            <Text style={styles.nutrient}>Energy: {item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
+            <Text style={styles.nutrient}>Protein: {item["PROTEIN"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Carbohydrates: {item["CARBOHYDRATE"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Added Sugars: {item["ADDED SUGARS"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Total Sugars: {item["TOTAL SUGARS"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Total Fat: {item["TOTAL FAT"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Saturated Fat: {item["SATURATED FAT"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Trans Fat: {item["TRANS FAT"] ?? "N/A"} g</Text>
+            <Text style={styles.nutrient}>Cholesterol: {item["CHOLESTEROL(mg)"] ?? "N/A"} mg</Text>
+            <Text style={styles.nutrient}>Sodium: {item["SODIUM(mg)"] ?? "N/A"} mg</Text>
           </View>
         )} 
       />
