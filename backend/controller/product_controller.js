@@ -57,7 +57,7 @@ exports.getCount = catchAsync( async (req, res) => {
 // Search for a brand or company
 exports.searchBiscuit = catchAsync(async (req, res) => {
   console.log("inside search fun..");
-        const searchQuery = req.body.q;
+        const searchQuery = req.body.query;
         if (!searchQuery) {
           console.log(searchQuery);
             return res.status(400).json({ message: "Search query is required" });
@@ -68,7 +68,7 @@ exports.searchBiscuit = catchAsync(async (req, res) => {
                 { "Brand Name": { $regex: searchQuery, $options: "i" } },
             ]
         });
-
+        console.log("Raw Search Results:", results);
         if (results.length === 0) {
             return res.status(404).json({ message: "No matching results found" });
         }
@@ -78,6 +78,7 @@ exports.searchBiscuit = catchAsync(async (req, res) => {
             data: results,
           });
 
+       
 });
 
 exports.getNutrients=catchAsync(
@@ -99,9 +100,10 @@ exports.getNutrients=catchAsync(
 
     res.status(200).json({
       status: "success",
-      data: {
-        nutrients:product.nutrients
-      }
+      data: results.map(({ "Brand Name": brand, nutrients }) => ({
+        brand,
+        nutrients
+    })),
     });
 
   }
