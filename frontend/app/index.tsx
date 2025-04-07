@@ -3,7 +3,7 @@ import "./../css/style.css"; // Import the CSS file
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import SignIn from "./components/signIn";
 import SignUp from "./components/signUp";
-import Search from "./components/search";
+import Scan from "./components/scan";
 
 const Home: React.FC = () => {
   return (
@@ -42,7 +42,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/scan" element={<Search />} />
+        <Route path="/scan" element={<Scan />} />
       </Routes>
     </Router>
     

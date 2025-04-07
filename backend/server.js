@@ -24,18 +24,17 @@ process.on(`unhandledRejection`,err=>{console.log(err.name,err.message);});
 
 
 require("dotenv").config();
-const ocrRoutes = require("./routes/ocr");
+const ocrRoutes = require("./routes/");
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+// const app = express();
+// app.use(cors());
 
-app.use("/api", ocrRoutes);
+// app.use(express.json());
+
+// app.use("/api", ocrRoutes);
 
 // Root endpoint
-app.get("/", (req, res) => {
-  res.send("OCR API is running...");
-});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -1,31 +1,34 @@
-const catchAsync=require("./../utils/catchAsync")
 const vision = require("@google-cloud/vision");
+const multer = require("multer");
+const upload = multer().single("image"); // "image" is the key from frontend form-data
+
 const client = new vision.ImageAnnotatorClient();
 
-exports.ocrfunc = catchAsync(async (req, res) => {
-    try {
-        console.log("Received Request Body:", req.body); // Debug request body
-
-        const { imageUrl } = req.body; // Extract imageUrl
-
-        if (!imageUrl) {
-            return res.status(400).json({ error: "No image URL provided" });
+exports.ocrfunc = (req, res) => {
+    upload(req, res, async function (err) {
+        console.log("Helllllooooooooooooooooooooooooooooo");
+        if (err) {
+            return res.status(400).json({ error: "Image upload failed", details: err.message });
         }
 
-        console.log("Processing Image URL:", imageUrl); // Debug image URL
+        try {
+            if (!req.file) {
+                return res.status(400).json({ error: "No image file provided" });
+            }
 
-        const request = {
-            image: { source: { imageUri: imageUrl } },
-        };
+            console.log("Received Image:", req.file.originalname);
 
-        const [result] = await client.textDetection(request);
-        console.log("Vision API Response:", result); // Debug API response
+            const request = {
+                image: { content: req.file.buffer }, // Pass image buffer directly
+            };
 
-        const extractedText = result.fullTextAnnotation?.text || "No text found";
-        res.json({ extractedText });
+            const [result] = await client.textDetection(request);
+            const extractedText = result.fullTextAnnotation?.text || "No text found";
 
-    } catch (error) {
-        console.error("OCR Error Details:", error);
-        res.status(500).json({ error: "Failed to process image", details: error.message });
-    }
-});
+            res.json({ extractedText });
+        } catch (error) {
+            console.error("OCR Error Details:", error);
+            res.status(500).json({ error: "Failed to process image", details: error.message });
+        }
+    });
+};
