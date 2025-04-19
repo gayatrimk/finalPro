@@ -1,11 +1,24 @@
-import React, { useState, useEffect } from "react"; // Import useEffect
-import { View, Button, Image, Alert, StyleSheet, ActivityIndicator, Text, Platform } from "react-native"; // Import Platform
+import React, { useState, useEffect } from "react";
+import { View, Button, Image, Alert, StyleSheet, ActivityIndicator, Text, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
+
+interface NutritionValue {
+  value: number | null;
+  unit: string | null;
+}
+
+interface PredictionResult {
+  message: string;
+  explanation: string;
+  nutrition_data?: { [key: string]: NutritionValue }; // Explicitly define the structure
+}
 
 const ImageUploadScreen = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null); // Explicitly type the state
+  const [error, setError] = useState<string | null>(null);
 
   // Function to convert base64 to Blob (for web)
   const base64toBlob = (base64Data: string, contentType = 'image/jpeg') => {
@@ -34,6 +47,8 @@ const ImageUploadScreen = () => {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setSelectedImage(result.assets[0].uri);
+      setPredictionResult(null); // Clear previous result
+      setError(null);
       console.log("✅ Selected Image URI:", result.assets[0].uri);
     }
   };
@@ -46,6 +61,9 @@ const ImageUploadScreen = () => {
     }
 
     setLoading(true);
+    setError(null);
+    setPredictionResult(null);
+
     try {
       const formData = new FormData();
       const filename = selectedImage.split('/').pop() || 'upload.jpg';
@@ -68,7 +86,7 @@ const ImageUploadScreen = () => {
         formData.append('image', photo); // For native platforms
       }
 
-      console.log("✅ Selected Image URI (before FormData log):",selectedImage);
+      console.log("✅ Selected Image URI (before FormData log):", selectedImage);
       console.log("✅ FormData before sending:");
       for (let pair of formData.entries()) {
         console.log(`${pair[0]}:`, pair[1]);
@@ -81,37 +99,59 @@ const ImageUploadScreen = () => {
         },
       });
 
-      console.log("✅ Request backend la geliy");
-      console.log("✅ API Response:", response);
+      console.log("✅ Request sent to backend");
+      console.log("✅ API Response:", response.data);
       if (response.status === 200) {
-        Alert.alert("Upload Successful", "Your image has been uploaded.");
-        fun1(); // ✅ Call fun1 after successful upload
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
+        setPredictionResult(response.data);
+        Alert.alert("Upload Successful", "Image processed successfully!");
+      } else {
+        setError("Failed to process image. Please try again.");}
+    } catch (error: any) {
+      console.error("Upload error:", error.message);
+      setError("Upload failed: " + error.message);
       Alert.alert("Upload Failed", "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to Run After Successful Upload
-  const fun1 = () => {
-    Alert.alert("Function Triggered", "fun1() executed successfully!");
-  };
-
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Food Nutrition Classifier</Text>
       {!selectedImage && <Button title="Pick an Image" onPress={pickImage} />}
 
       {selectedImage && (
         <>
           <Image source={{ uri: selectedImage }} style={styles.image} />
-          <Button title="Upload Image" onPress={uploadImage} color="#1E90FF" />
+          <Button title="Analyze Image" onPress={uploadImage} color="#1E90FF" />
         </>
       )}
 
       {loading && <ActivityIndicator size="large" color="#1E90FF" style={styles.loader} />}
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {predictionResult && (
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultTitle}>Analysis Result:</Text>
+          <Text style={styles.resultText}>Prediction: {predictionResult.message}</Text>
+          <Text style={styles.resultText}>Explanation: {predictionResult.explanation}</Text>
+          {predictionResult.nutrition_data && Object.keys(predictionResult.nutrition_data).length > 0 && (
+            <>
+              <Text style={styles.nutritionTitle}>Extracted Nutrition Data:</Text>
+              {Object.entries(predictionResult.nutrition_data).map(([key, value]) => (
+                <Text key={key} style={styles.nutritionText}>
+                  {key}: {value.value} {value.unit}
+                </Text>
+              ))}
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -124,6 +164,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     padding: 20,
   },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    color: "#333",
+  },
   image: {
     width: 200,
     height: 200,
@@ -135,11 +181,45 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 10,
   },
-  title: {
-    fontSize: 22,
+  errorContainer: {
+    marginTop: 20,
+    backgroundColor: "#ffe0e0",
+    padding: 15,
+    borderRadius: 5,
+    borderColor: "#ffc0c0",
+    borderWidth: 1,
+  },
+  errorText: {
+    color: "#d32f2f",
+  },
+  resultContainer: {
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 5,
+    backgroundColor: "#e0f7fa",
+    borderColor: "#b2ebf2",
+    borderWidth: 1,
+  },
+  resultTitle: {
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 20,
-    color: "#333",
+    marginBottom: 10,
+    color: "#0277bd",
+  },
+  resultText: {
+    fontSize: 16,
+    marginBottom: 5,
+    color: "#1976d2",
+  },
+  nutritionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+    color: "#388e3c",
+  },
+  nutritionText: {
+    fontSize: 14,
+    color: "#43a047",
   },
 });
 
