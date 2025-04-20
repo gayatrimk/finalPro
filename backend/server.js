@@ -8,35 +8,22 @@ mongoose
   .connect(DB)
   .then(() => {
     console.log("Connection success");
+})
+.catch((err) => {
+    console.log("Database connection error: ", err);
 });
 
-//const app = require("./app");
+const app = require("./app");  // Assuming you have an app.js in the same directory
+
 app.use(cors());
 
-const port = process.env.PORT;
-app.listen(port, () => {console.log(`App running on port ${port}...`);});
+// Ensure you're using a single app.listen call
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`✅ App running on port ${port}...`);
+});
 
-process.on(`unhandledRejection`,err=>{console.log(err.name,err.message);});
-
-//>>npm start
-
-
-
-
-require("dotenv").config();
-const ocrRoutes = require("./routes/");
-
-// const app = express();
-// app.use(cors());
-
-// app.use(express.json());
-
-// app.use("/api", ocrRoutes);
-
-// Root endpoint
-
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ App running on port ${PORT}...`);
+// Handle unhandled promise rejections globally
+process.on("unhandledRejection", (err) => {
+  console.log(err.name, err.message);
 });

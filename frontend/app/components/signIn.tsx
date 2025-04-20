@@ -1,34 +1,38 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, Alert, StyleSheet } from "react-native";
 import axios from "axios";
+import { Link } from "react-router-native";
 
 const SignIn = () => {
   console.log("process started");  // First log
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+  const [redirect, setRedirect] = useState(false);
+
   const handleSignIn = async () => {
     console.log("🔹 Button Clicked!");
-  
+
     try {
       console.log("Sending request to backend...");
       const response = await axios.post("http://127.0.0.1:3000/users/signin", { email, password });
-  
+
       console.log("Response received:", response.data);
-  
+
       if (response.status === 200) {
         Alert.alert("Success", "Login Successful!");
+        setRedirect(true);
+        console.log("yeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+          <Link to="/search"/>
       } else {
         Alert.alert("Error", "Unexpected response from server.");
       }
-  
+
       console.log("Token:", response.data.token);
     } catch (error) {
       Alert.alert("Error", "Invalid Credentials or Server Issue.");
     }
   };
-  
 
   return (
     <View style={styles.container}>
@@ -56,11 +60,12 @@ const SignIn = () => {
       <View style={styles.buttonContainer}>
         <Button title="SUBMIT" onPress={handleSignIn} color="#1E90FF" />
       </View>
+
     </View>
   );
 };
-console.log("🔹 App Loaded!");
 
+console.log("🔹 App Loaded!");
 
 const styles = StyleSheet.create({
   container: {
@@ -97,6 +102,12 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: "100%",
     marginTop: 10,
+  },
+  linkText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: "#1E90FF",
+    fontWeight: "bold",
   },
 });
 

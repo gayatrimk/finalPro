@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import SignIn from "./components/signIn";
 import SignUp from "./components/signUp";
 import Scan from "./components/scan";
-
+import Search from "./components/search";
 const Home: React.FC = () => {
   return (
     <div className="container2">
@@ -26,7 +26,8 @@ const Home: React.FC = () => {
           <div className="flex flex-col space-y-3 w-full items-center">
           <Link to="/signin" className="btn2 btn-black">Sign In</Link>
           <Link to="/signup" className="btn2 btn-black">Sign Up</Link>
-          <Link to="/scan" className="btn2 btn-black">Search</Link>
+          <Link to="/scan" className="btn2 btn-black">Scan</Link>
+          <Link to="/search" className="btn2 btn-black">Search</Link>
           </div>
         </div>
     </div>
@@ -43,6 +44,7 @@ const App = () => {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/scan" element={<Scan />} />
+        <Route path="/search" element={<Search />} />
       </Routes>
     </Router>
     

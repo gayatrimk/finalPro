@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, Alert, StyleSheet } from "react-native";
-import axios from "axios";
+
+import axios, { AxiosError } from "axios";
 
 const SignUp = () => {
   console.log("🔹 SignUp Component Loaded");
@@ -11,6 +12,13 @@ const SignUp = () => {
 
   const handleSignUp = async () => {
     console.log("🔹 SignUp Button Clicked!");
+
+    // Check if passwords match before sending request
+    if (password !== passwordConfirm) {
+      Alert.alert("Error", "Passwords do not match.");
+      return;
+    }
+
     try {
       console.log("Sending sign-up request to backend...");
       const response = await axios.post("http://127.0.0.1:3000/users/signup", {
@@ -22,13 +30,20 @@ const SignUp = () => {
 
       console.log("Response received:", response.data);
 
+      // Check for token in response to trigger success alert
       if (response.data.token) {
         Alert.alert("Success", "Account Created Successfully!");
       } else {
         Alert.alert("Error", "Unexpected response from server.");
       }
-    } catch (error) {
-      Alert.alert("Error", "Registration Failed! Please try again.");
+    } catch (error: unknown) { // Specify error type as 'unknown'
+      if (axios.isAxiosError(error)) {  // Type guard to check if it's an AxiosError
+        console.error("Axios error during registration:", error.response?.data);
+        Alert.alert("Error", `Registration Failed! ${error.response?.data.message || 'Please try again.'}`);
+      } else {
+        console.error("Unknown error:", error);
+        Alert.alert("Error", "An unknown error occurred.");
+      }
     }
   };
 
@@ -64,7 +79,7 @@ const SignUp = () => {
         placeholderTextColor="#888"
       />
 
-<Text style={styles.label}>Password Confirm:</Text>
+      <Text style={styles.label}>Password Confirm:</Text>
       <TextInput
         style={styles.input}
         value={passwordConfirm}
