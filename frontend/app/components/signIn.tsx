@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, Alert, StyleSheet } from "react-native";
 import axios from "axios";
-import { Link } from "react-router-native";
+// import { Link } from "react-router-native";
+import { useNavigate } from "react-router-dom";
 
 const SignIn = () => {
   console.log("process started");  // First log
+
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +26,7 @@ const SignIn = () => {
         Alert.alert("Success", "Login Successful!");
         setRedirect(true);
         console.log("yeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-          <Link to="/search"/>
+        navigate("/search"); 
       } else {
         Alert.alert("Error", "Unexpected response from server.");
       }

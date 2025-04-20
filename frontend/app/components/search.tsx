@@ -13,7 +13,7 @@ const Search = () => {
     setLoading(true);
     try {
         //const data = await axios.post(`127.0.0.1:3000/products/search`,{ query });
-        const data = await axios.post(`http://192.168.0.102:3000/products/search`, { query });
+        const data = await axios.post(`http://192.168.31.24:3000/products/search`, { query });
       console.log(data.data);
       setResults(data.data.data);
     } catch (error) {
