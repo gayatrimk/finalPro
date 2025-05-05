@@ -23,17 +23,17 @@ const SignIn = () => {
       console.log("Response received:", response.data);
 
       if (response.status === 200) {
-        Alert.alert("Success", "Login Successful!");
+        alert("Login Successful!");
         setRedirect(true);
-        console.log("yeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+        //console.log("yeeeeeeeeeeeeeeeeeeeeeeeeeeee");
         navigate("/search"); 
       } else {
-        Alert.alert("Error", "Unexpected response from server.");
+        alert("Login Successful!");
       }
 
       console.log("Token:", response.data.token);
     } catch (error) {
-      Alert.alert("Error", "Invalid Credentials or Server Issue.");
+      alert("Error : Invalid Credentials or Server Issue.");
     }
   };
 
