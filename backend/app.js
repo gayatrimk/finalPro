@@ -5,7 +5,10 @@ const userRouter = require(`./routes/user_router`);
 const productRouter = require(`./routes/product_router`);
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:8081', // your frontend port
+  credentials: true // to allow cookies
+}));
 app.use(express.json());
 app.use(`/users`, userRouter);
 app.use(`/products`,productRouter);

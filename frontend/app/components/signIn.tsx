@@ -1,116 +1,150 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import axios from "axios";
-// import { Link } from "react-router-native";
 import { useNavigate } from "react-router-dom";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SignIn = () => {
-  console.log("process started");  // First log
-
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [redirect, setRedirect] = useState(false);
 
   const handleSignIn = async () => {
-    console.log("🔹 Button Clicked!");
+
+    if (!email.trim() || !password.trim()) {
+      alert("Both Email and Password are required.");
+      return;
+    }
 
     try {
-      console.log("Sending request to backend...");
-      const response = await axios.post("http://127.0.0.1:3000/users/signin", { email, password });
-
-      console.log("Response received:", response.data);
+      const response = await axios.post(
+        "http://127.0.0.1:3000/users/signin",
+        { email, password },
+        { withCredentials: true }
+      );
 
       if (response.status === 200) {
+        const token = response.data.token;
+        await AsyncStorage.setItem("authToken", token);
         alert("Login Successful!");
-        setRedirect(true);
-        //console.log("yeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-        navigate("/search"); 
+        navigate("/landing");
       } else {
-        alert("Login Successful!");
+        alert("Unexpected response from server.");
       }
-
-      console.log("Token:", response.data.token);
     } catch (error) {
-      alert("Error : Invalid Credentials or Server Issue.");
+      alert("Invalid Credentials or Server Issue.");
+    }
+  };
+
+  const handleKeyPress = (event) => {
+    if (event.nativeEvent.key === "Enter") {
+      handleSignIn();
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign In</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <View style={styles.card}>
+        <Text style={styles.title}>Welcome Back</Text>
 
-      <Text style={styles.label}>Email:</Text>
-      <TextInput
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Enter your email"
-        placeholderTextColor="#888"
-      />
+        <Text style={styles.label}>Email Address</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="e.g. user@example.com"
+          placeholderTextColor="#aaa"
+        />
 
-      <Text style={styles.label}>Password:</Text>
-      <TextInput
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="Enter your password"
-        placeholderTextColor="#888"
-      />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          style={styles.input}
+          value={password}
+          onChangeText={setPassword}
+          onKeyPress={handleKeyPress}
+          secureTextEntry
+          placeholder="Enter your password"
+          placeholderTextColor="#aaa"
+        />
 
-      <View style={styles.buttonContainer}>
-        <Button title="SUBMIT" onPress={handleSignIn} color="#1E90FF" />
+        <TouchableOpacity style={styles.button} onPress={handleSignIn}>
+          <Text style={styles.buttonText}>Sign In</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigate("/")}>
+          <Text style={styles.linkText}>Back to Home Page</Text>
+        </TouchableOpacity>
       </View>
-
-    </View>
+    </KeyboardAvoidingView>
   );
 };
-
-console.log("🔹 App Loaded!");
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#E8F0FE",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+  card: {
+    width: "90%",
+    maxWidth: 360,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
+    color: "#1E90FF",
     marginBottom: 20,
-    color: "#333",
+    textAlign: "center",
   },
   label: {
-    alignSelf: "flex-start",
     fontSize: 16,
     fontWeight: "600",
-    color: "#444",
-    marginBottom: 5,
+    color: "#333",
+    marginBottom: 8,
   },
   input: {
-    width: "100%",
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ccc",
+    backgroundColor: "#F1F1F1",
     borderRadius: 10,
     paddingHorizontal: 15,
+    height: 50,
     fontSize: 16,
-    backgroundColor: "#fff",
-    marginBottom: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#ddd",
   },
-  buttonContainer: {
-    width: "100%",
+  button: {
+    backgroundColor: "#1E90FF",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
     marginTop: 10,
   },
-  linkText: {
-    marginTop: 20,
+  buttonText: {
+    color: "#fff",
     fontSize: 16,
-    color: "#1E90FF",
     fontWeight: "bold",
+    textTransform: "uppercase",
+  },
+  linkText: {
+    color: "#1E90FF",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 15,
   },
 });
 

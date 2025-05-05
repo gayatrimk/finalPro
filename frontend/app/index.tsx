@@ -5,6 +5,7 @@ import SignIn from "./components/signIn";
 import SignUp from "./components/signUp";
 import Scan from "./components/scan";
 import Search from "./components/search";
+import LandingPage from "@/app/components/landing";
 const Home: React.FC = () => {
   return (
     <div className="container2">
@@ -28,6 +29,7 @@ const Home: React.FC = () => {
           <Link to="/signup" className="btn2 btn-black">Sign Up</Link>
           <Link to="/scan" className="btn2 btn-black">Scan</Link>
           <Link to="/search" className="btn2 btn-black">Search</Link>
+          
           </div>
         </div>
     </div>
@@ -45,6 +47,8 @@ const App = () => {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/scan" element={<Scan />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/landing" element={<LandingPage />} />
+
       </Routes>
     </Router>
     
