@@ -287,41 +287,59 @@ const LandingPage = () => {
                   styles.resultCard, 
                   { 
                     opacity: itemOpacity,
-                    transform: [{ translateY: itemTranslateY }]
+                    transform: [{ translateY: itemTranslateY }],
+                    flexDirection: "row",  // Add row layout
+                    justifyContent: "space-between",
                   }
                 ]}
               >
-                <Text style={styles.brandName}>{item["Brand Name"] ?? "Unknown Brand"}</Text>
-                <View style={styles.divider} />
-                <View style={styles.nutrientGrid}>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Energy</Text>
-                    <Text style={styles.nutrientValue}>{item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Protein</Text>
-                    <Text style={styles.nutrientValue}>{item["PROTEIN"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Carbs</Text>
-                    <Text style={styles.nutrientValue}>{item["CARBOHYDRATE"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Total Fat</Text>
-                    <Text style={styles.nutrientValue}>{item["TOTAL FAT"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Total Sugars</Text>
-                    <Text style={styles.nutrientValue}>{item["TOTAL SUGARS"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Sodium</Text>
-                    <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
+                <View style={{ flex: 2, paddingRight: 10 }}>
+                  <Text style={styles.brandName}>{item["Brand Name"] ?? "Unknown Brand"}</Text>
+                  <View style={styles.divider} />
+
+                  <View style={styles.nutrientGrid}>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Energy</Text>
+                      <Text style={styles.nutrientValue}>{item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Protein</Text>
+                      <Text style={styles.nutrientValue}>{item["PROTEIN"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Carbs</Text>
+                      <Text style={styles.nutrientValue}>{item["CARBOHYDRATE"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Fat</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL FAT"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Sugars</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL SUGARS"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Sodium</Text>
+                      <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
+                    </View>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.viewMoreButton} activeOpacity={0.7}>
+
+                {/* Right Column: Image */}
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  {item["img"] ? (
+                    <Image
+                      source={{ uri: item["img"] }}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.nutrient}>Image: N/A</Text>
+                  )}
+                </View>
+                {/* <TouchableOpacity style={styles.viewMoreButton} activeOpacity={0.7}>
                   <Text style={styles.viewMoreText}>View Details</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </Animated.View>
             );
           }}
@@ -815,6 +833,18 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#333",
   },
+  nutrient: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  image: {
+    width: 300,
+    height: 300,
+    borderRadius: 8,
+  },
+  
+  
 });
 
 export default LandingPage;
