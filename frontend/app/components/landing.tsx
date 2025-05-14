@@ -286,7 +286,7 @@ const LandingPage = () => {
             ]).start();
             
             return (
-              <Animated.View 
+              <View 
                 style={[
                   styles.resultCard, 
                   { 
@@ -344,7 +344,7 @@ const LandingPage = () => {
                 {/* <TouchableOpacity style={styles.viewMoreButton} activeOpacity={0.7}>
                   <Text style={styles.viewMoreText}>View Details</Text>
                 </TouchableOpacity> */}
-              </Animated.View>
+              </View>
             );
           }}
           ListEmptyComponent={
