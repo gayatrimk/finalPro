@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,23 +11,35 @@ const SignIn = () => {
   const [password, setPassword] = useState("");
 
   const handleSignIn = async () => {
+
+    if (!email.trim() || !password.trim()) {
+      alert("Both Email and Password are required.");
+      return;
+    }
+
     try {
-      const response = await axios.post("http://127.0.0.1:3000/users/signin", { email, password },  { withCredentials: true });
+      const response = await axios.post(
+        "http://127.0.0.1:3000/users/signin",
+        { email, password },
+        { withCredentials: true }
+      );
 
       if (response.status === 200) {
-
         const token = response.data.token;
-
-        // Store token in AsyncStorage
         await AsyncStorage.setItem("authToken", token);
-
-        Alert.alert("Success", "Login Successful!");
+        alert("Login Successful!");
         navigate("/landing");
       } else {
-        Alert.alert("Error", "Unexpected response from server.");
+        alert("Unexpected response from server.");
       }
     } catch (error) {
-      Alert.alert("Error", "Invalid Credentials or Server Issue.");
+      alert("Invalid Credentials or Server Issue.");
+    }
+  };
+
+  const handleKeyPress = (event) => {
+    if (event.nativeEvent.key === "Enter") {
+      handleSignIn();
     }
   };
 
@@ -53,6 +65,7 @@ const SignIn = () => {
           style={styles.input}
           value={password}
           onChangeText={setPassword}
+          onKeyPress={handleKeyPress}
           secureTextEntry
           placeholder="Enter your password"
           placeholderTextColor="#aaa"
@@ -60,6 +73,10 @@ const SignIn = () => {
 
         <TouchableOpacity style={styles.button} onPress={handleSignIn}>
           <Text style={styles.buttonText}>Sign In</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigate("/")}>
+          <Text style={styles.linkText}>Back to Home Page</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -75,7 +92,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   card: {
-    width: "100%",
+    width: "90%",
+    maxWidth: 360,
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 25,
@@ -121,8 +139,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textTransform: "uppercase",
   },
+  linkText: {
+    color: "#1E90FF",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 15,
+  },
 });
 
 export default SignIn;
-
-

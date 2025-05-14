@@ -214,6 +214,10 @@ const LandingPage = () => {
 
   const navigation = useNavigate();
 
+  const handleReadBlog = () => {
+    navigation("/blog");
+  };
+
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem("authToken");
@@ -287,41 +291,59 @@ const LandingPage = () => {
                   styles.resultCard, 
                   { 
                     opacity: itemOpacity,
-                    transform: [{ translateY: itemTranslateY }]
+                    transform: [{ translateY: itemTranslateY }],
+                    flexDirection: "row",  // Add row layout
+                    justifyContent: "space-between",
                   }
                 ]}
               >
-                <Text style={styles.brandName}>{item["Brand Name"] ?? "Unknown Brand"}</Text>
-                <View style={styles.divider} />
-                <View style={styles.nutrientGrid}>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Energy</Text>
-                    <Text style={styles.nutrientValue}>{item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Protein</Text>
-                    <Text style={styles.nutrientValue}>{item["PROTEIN"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Carbs</Text>
-                    <Text style={styles.nutrientValue}>{item["CARBOHYDRATE"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Total Fat</Text>
-                    <Text style={styles.nutrientValue}>{item["TOTAL FAT"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Total Sugars</Text>
-                    <Text style={styles.nutrientValue}>{item["TOTAL SUGARS"] ?? "N/A"} g</Text>
-                  </View>
-                  <View style={styles.nutrientItem}>
-                    <Text style={styles.nutrientLabel}>Sodium</Text>
-                    <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
+                <View style={{ flex: 2, paddingRight: 10 }}>
+                  <Text style={styles.brandName}>{item["Brand Name"] ?? "Unknown Brand"}</Text>
+                  <View style={styles.divider} />
+
+                  <View style={styles.nutrientGrid}>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Energy</Text>
+                      <Text style={styles.nutrientValue}>{item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Protein</Text>
+                      <Text style={styles.nutrientValue}>{item["PROTEIN"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Carbs</Text>
+                      <Text style={styles.nutrientValue}>{item["CARBOHYDRATE"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Fat</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL FAT"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Sugars</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL SUGARS"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Sodium</Text>
+                      <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
+                    </View>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.viewMoreButton} activeOpacity={0.7}>
+
+                {/* Right Column: Image */}
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  {item["img"] ? (
+                    <Image
+                      source={{ uri: item["img"] }}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.nutrient}>Image: N/A</Text>
+                  )}
+                </View>
+                {/* <TouchableOpacity style={styles.viewMoreButton} activeOpacity={0.7}>
                   <Text style={styles.viewMoreText}>View Details</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </Animated.View>
             );
           }}
@@ -439,13 +461,120 @@ const LandingPage = () => {
     </Animated.ScrollView>
   );
 
+  const blogArticles = [
+    {
+      id: 1,
+      title: "How to Decode Food Labels Like a Pro",
+      snippet: "Learn how to identify hidden sugars and sodium traps...",
+      content:
+        "Food labels contain vital information about nutrition, ingredients, and allergens. Look for hidden sugars, sodium levels, and misleading 'organic' or 'natural' claims. Understanding these can help you make smarter food choices.",
+      image:
+        "https://static.toiimg.com/thumb/msid-113384723,imgsize-63238,width-400,resizemode-4/113384723.jpg",
+    },
+    {
+      id: 2,
+      title: "Top 5 Healthy Biscuit Brands Reviewed",
+      snippet: "After reviewing 15 popular brands, only 5 stood out...",
+      content:
+        "We found 5 biscuit brands that avoid harmful oils, excess sugar, and artificial additives. They use whole grains, natural sweeteners, and maintain controlled fat levels. Always choose snacks that support your health goals.",
+      image:
+        "https://i.ytimg.com/vi/fKxmRoD3_y4/sddefault.jpg",
+    },
+    {
+      id: 3,
+      title: "Is Your Favorite Snack Safe? Let's Find Out!",
+      snippet: "We analyzed the top snacks to check their ingredients...",
+      content:
+        "Many packaged snacks contain preservatives, flavor enhancers, and other chemicals that can be harmful if consumed regularly. Ingredients like MSG, artificial sweeteners, and trans fats should be avoided. Always read labels carefully before buying.",
+      image:
+        "https://www.eatthis.com/wp-content/uploads/sites/4/2020/05/snacks-in-america.jpg?quality=82&strip=1",
+    },
+  ];
+
+  const renderBlogTab = () => {
+    const [selected, setSelected] = useState<number | null>(null);
+  
+    return (
+      <Animated.View
+        style={[
+          styles.tabContent,
+          { display: activeTab === 'blog' ? 'flex' : 'none' },
+        ]}
+      >
+        <View style={styles.headerBox}>
+          <Text style={styles.blogHeader}>📰 Health Insights Blog</Text>
+          <Text style={styles.blogSubheader}>Read, Learn, and Eat Smart</Text>
+        </View>
+  
+        {selected ? (
+          <ScrollView style={styles.blogDetail}>
+            <Text style={styles.blogTitle}>{blogArticles[selected - 1].title}</Text>
+            <Image
+              source={{ uri: blogArticles[selected - 1].image }}
+              style={styles.blogImageLarge}
+              resizeMode="cover"
+            />
+            <Text style={styles.blogContent}>{blogArticles[selected - 1].content}</Text>
+            <TouchableOpacity onPress={() => setSelected(null)} style={styles.backButton}>
+              <Text style={styles.backButtonText}>← Back to articles</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.blogList}>
+            {blogArticles.map((article, index) => {
+              const fadeAnim = new Animated.Value(0);
+              const translateY = new Animated.Value(50);
+  
+              Animated.parallel([
+                Animated.timing(fadeAnim, {
+                  toValue: 1,
+                  duration: 300,
+                  delay: index * 100,
+                  useNativeDriver: true,
+                }),
+                Animated.timing(translateY, {
+                  toValue: 0,
+                  duration: 300,
+                  delay: index * 100,
+                  useNativeDriver: true,
+                }),
+              ]).start();
+  
+              return (
+                <Animated.View
+                  key={article.id}
+                  style={[
+                    styles.blogCard,
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY }],
+                    },
+                  ]}
+                >
+                  <TouchableOpacity onPress={() => setSelected(article.id)} activeOpacity={0.8}>
+                    <Image source={{ uri: article.image }} style={styles.blogImage} />
+                    <View style={styles.blogTextContent}>
+                      <Text style={styles.blogTitleSmall}>{article.title}</Text>
+                      <Text style={styles.blogSnippet}>{article.snippet}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </ScrollView>
+        )}
+      </Animated.View>
+    );
+  };
+
   return (
+    
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#4CAF50" barStyle="light-content" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>FoodX</Text>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+        <TouchableOpacity onPress={handleLogout}>
           <MaterialCommunityIcons name="logout" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -480,6 +609,21 @@ const LandingPage = () => {
             Scan
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => switchTab('blog')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons 
+            name="receipt" 
+            size={24} 
+            color={activeTab === 'blog' ? "#4CAF50" : "#757575"} 
+          />
+          <Text style={activeTab === 'blog' ? styles.activeTabText : styles.tabText}>
+            Read Blog
+          </Text>
+        </TouchableOpacity>
         
         <Animated.View 
           style={[
@@ -491,6 +635,7 @@ const LandingPage = () => {
       
       {renderSearchTab()}
       {renderImageTab()}
+      {renderBlogTab()}
     </SafeAreaView>
   );
 };
@@ -815,6 +960,99 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#333",
   },
+  nutrient: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  image: {
+    width: 300,
+    height: 300,
+    borderRadius: 8,
+  },
+
+  blogHeader: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginTop: 10,
+  },
+  blogSubheader: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  blogList: {
+    paddingHorizontal: 15,
+  },
+  blogCard: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    width: '90%', // Reduced width
+    maxWidth: 500, // Limit maximum width
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+    overflow: 'hidden',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    marginLeft: 'auto',
+    marginRight: 'auto', // Center the card
+  },
+  blogImage: {
+    width: 750, // Adjust image width
+    height: 220, // Adjust image height
+    objectFit: 'cover',
+  },
+  blogImageLarge: {
+    width: "100%",
+    height: 250,
+    borderRadius: 10,
+    marginVertical: 15,
+  },
+  blogTextContent: {
+    padding: 10,
+  },
+  blogTitleSmall: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#222",
+  },
+  blogSnippet: {
+    fontSize: 14,
+    color: '#555',
+  },
+  blogDetail: {
+    padding: 15,
+  },
+  blogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  blogContent: {
+     fontSize: 16,
+    lineHeight: 1.5,
+    color: '#333',
+  },
+  backButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 8,
+    alignSelf: "center",
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: "#000",
+  },
+  blogCardHover: {
+    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+  },
+  
+  
 });
 
 export default LandingPage;
