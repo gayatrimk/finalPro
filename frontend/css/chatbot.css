@@ -1,0 +1,84 @@
+/* Container for the whole chat interface */
+.chatbot-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 40px auto;
+  background-color: #ffffff;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
+}
+
+/* Chat area where messages appear */
+.chat-window {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background-color: #f9fafb;
+}
+
+/* Single message styling */
+.message {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  max-width: 80%;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+/* User messages */
+.message.user {
+  background-color: #0078d4;
+  color: white;
+  align-self: flex-end;
+}
+
+/* Bot messages */
+.message.bot {
+  background-color: #e5e7eb;
+  color: #111827;
+  align-self: flex-start;
+}
+
+/* Message input area */
+.input-area {
+  display: flex;
+  border-top: 1px solid #e0e0e0;
+  padding: 12px;
+  background-color: #ffffff;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 24px;
+  outline: none;
+  transition: border 0.2s ease;
+}
+
+.input-area input:focus {
+  border-color: #0078d4;
+}
+
+/* Send button */
+.input-area button {
+  margin-left: 10px;
+  padding: 10px 18px;
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.input-area button:hover {
+  background-color: #005ea1;
+}
