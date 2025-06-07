@@ -20,23 +20,44 @@ import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "expo-router";
+import Chatbot from './chatbot';
 
-const { width } = Dimensions.get('window');
+const width = Dimensions.get('window').width;
+const tabWidth = width / 3;
+
+// Add API URL configuration
+const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5001' : 'http://192.168.178.249:5001';
+const SEARCH_API_URL = 'http://192.168.178.249:3000';
+const API_TIMEOUT = 5000; // 5 seconds timeout
 
 interface NutritionValue {
   value: number | null;
   unit: string | null;
 }
 
-
 interface PredictionResult {
   message: string;
   explanation: string;
   nutrition_data?: { [key: string]: NutritionValue };
+  alternatives?: Array<{
+    "Brand Name": string;
+    "ENERGY(kcal)": string | number;
+    "PROTEIN": string | number;
+    "CARBOHYDRATE": string | number;
+    "TOTAL SUGARS": string | number;
+    "TOTAL FAT": string | number;
+    "SODIUM(mg)": string | number;
+    "Category": string;
+    "img": string | null;
+  }>;
 }
 
 const LandingPage = () => {
+  // Add sidebar animation value
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sidebarAnimation = useState(new Animated.Value(500))[0];
+  
   // Tab state
   const [activeTab, setActiveTab] = useState('search');
   
@@ -44,6 +65,7 @@ const LandingPage = () => {
   const tabIndicatorPosition = useState(new Animated.Value(0))[0];
   const searchOpacity = useState(new Animated.Value(1))[0];
   const scanOpacity = useState(new Animated.Value(0))[0];
+  const blogOpacity = useState(new Animated.Value(0))[0];
   
   // Search functionality states
   const [query, setQuery] = useState("");
@@ -56,47 +78,67 @@ const LandingPage = () => {
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Add state for blogs
+  const [blogs, setBlogs] = useState<Array<{
+    id: string;
+    date: string;
+    title: string;
+    snippet: string;
+    content: string;
+    image: string;
+    likes: number;
+    comments: Array<{
+      id: number;
+      text: string;
+      date: string;
+    }>;
+  }>>([]);
+  const [blogsLoading, setBlogsLoading] = useState(false);
+  const [blogsError, setBlogsError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState('');
+
+  const router = useRouter();
+
+  // Toggle sidebar function with animation
+  const toggleSidebar = () => {
+    const toValue = isSidebarOpen ? 500 : 0;
+    Animated.spring(sidebarAnimation, {
+      toValue,
+      useNativeDriver: true,
+    }).start();
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   // Switch tabs with animation
   const switchTab = (tab: string) => {
     if (tab === activeTab) return;
+
+    let toValue = 0;
+    if (tab === 'scan') toValue = tabWidth;
+    else if (tab === 'blog') toValue = tabWidth * 2;
     
-    if (tab === 'search') {
-      Animated.parallel([
-        Animated.timing(tabIndicatorPosition, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true
-        }),
-        Animated.timing(searchOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true
-        }),
-        Animated.timing(scanOpacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true
-        })
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(tabIndicatorPosition, {
-          toValue: width / 2,
-          duration: 300,
-          useNativeDriver: true
-        }),
-        Animated.timing(searchOpacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true
-        }),
-        Animated.timing(scanOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true
-        })
-      ]).start();
-    }
+    Animated.parallel([
+      Animated.timing(tabIndicatorPosition, {
+        toValue,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(searchOpacity, {
+        toValue: tab === 'search' ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(scanOpacity, {
+        toValue: tab === 'scan' ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(blogOpacity, {
+        toValue: tab === 'blog' ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
     
     setActiveTab(tab);
   };
@@ -116,13 +158,44 @@ const LandingPage = () => {
   const handleSearch = async () => {
     if (!query.trim()) return;
     setSearchLoading(true);
+    setSearchResults([]);
     try {
-      const data = await axios.post(`http://192.168.31.101:3000/products/search`, { query });
-      console.log(data.data);
-      setSearchResults(data.data.data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      Alert.alert("Search Failed", "Failed to fetch data. Please check your internet connection.");
+      console.log('Making search request to:', `${SEARCH_API_URL}/products/search`);
+      const response = await axios.post(
+        `${SEARCH_API_URL}/products/search`, 
+        { query },
+        {
+          timeout: API_TIMEOUT,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.data) {
+        console.log('Search results count:', response.data.data.length);
+        setSearchResults(response.data.data);
+      } else {
+        console.error('Invalid search response format:', response.data);
+        Alert.alert(
+          "Search Error", 
+          "Received invalid data format from server. Please try again."
+        );
+      }
+    } catch (error: any) {
+      console.error("Search error:", error);
+      let errorMessage = 'Failed to fetch search results. ';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. ';
+      } else if (error.response) {
+        errorMessage += `Server error: ${error.response.status}. `;
+      } else if (error.request) {
+        errorMessage += 'No response from server. ';
+      } else {
+        errorMessage += error.message;
+      }
+      Alert.alert("Search Failed", errorMessage + "Please try again.");
     } finally {
       setSearchLoading(false);
     }
@@ -162,41 +235,46 @@ const LandingPage = () => {
 
     try {
       const formData = new FormData();
-      const filename = selectedImage.split('/').pop() || 'upload.jpg';
-      let fileBlob;
-
+      
       if (Platform.OS === 'web' && selectedImage.startsWith('data:')) {
+        // Handle web platform
         const contentTypeMatch = selectedImage.match(/^data:(.*?);/);
         const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
         const base64Data = selectedImage;
-        fileBlob = base64toBlob(base64Data, contentType);
-        formData.append('image', fileBlob, filename);
+        const fileBlob = base64toBlob(base64Data, contentType);
+        formData.append('image', fileBlob, 'upload.jpg');
       } else {
-        const fileExt = selectedImage.split('.').pop();
-        const mimeType = fileExt ? `image/${fileExt}` : "image/jpeg";
-        const photo: any = {
-          uri: selectedImage,
-          type: mimeType,
-          name: filename,
-        };
-        formData.append('image', photo);
+        // Handle mobile platforms
+        const localUri = selectedImage;
+        const filename = localUri.split('/').pop();
+        
+        // Infer the type of the image
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('image', {
+          uri: localUri,
+          name: filename || 'upload.jpg',
+          type,
+        } as any);
       }
 
-      console.log("✅ Selected Image URI (before FormData log):", selectedImage);
-      console.log("✅ FormData before sending:");
-      for (let pair of formData.entries()) {
-        console.log(`${pair[0]}:`, pair[1]);
-      }
+      console.log("✅ Selected Image URI:", selectedImage);
+      console.log("✅ FormData prepared for upload");
 
-      const response = await axios.post("http://127.0.0.1:5001/ocr", formData, {
+      const response = await axios.post(`${API_URL}/ocr`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          Accept: "application/json",
+          'Accept': 'application/json',
+        },
+        transformRequest: (data, headers) => {
+          return formData;
         },
       });
 
       console.log("✅ Request sent to backend");
       console.log("✅ API Response:", response.data);
+      
       if (response.status === 200) {
         setPredictionResult(response.data);
         Alert.alert("Upload Successful", "Image processed successfully!");
@@ -204,29 +282,117 @@ const LandingPage = () => {
         setError("Failed to process image. Please try again.");
       }
     } catch (error: any) {
-      console.error("Upload error:", error.message);
-      setError("Upload failed: " + error.message);
-      Alert.alert("Upload Failed", "Something went wrong.");
+      console.error("Upload error:", error);
+      let errorMessage = "Upload failed: ";
+      if (error.response) {
+        errorMessage += error.response.data?.error || error.response.data?.message || error.message;
+      } else if (error.request) {
+        errorMessage += "No response from server. Please check your connection.";
+      } else {
+        errorMessage += error.message;
+      }
+      setError(errorMessage);
+      Alert.alert("Upload Failed", errorMessage);
     } finally {
       setImageLoading(false);
     }
   };
 
-  const navigation = useNavigate();
-
   const handleReadBlog = () => {
-    navigation("/blog");
   };
 
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem("authToken");
-      navigation("/"); // or navigate depending on your stack
+      router.replace("/(auth)/login");
     } catch (e) {
       console.error("Failed to logout:", e);
     }
   };
   
+  const fetchBlogs = async () => {
+    console.log('Starting to fetch blogs...');
+    setBlogsLoading(true);
+    setBlogsError(null);
+    try {
+      console.log('Making API request to:', `${API_URL}/blogs`);
+      const response = await axios.get(`${API_URL}/blogs`, {
+        timeout: API_TIMEOUT,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      //console.log('Received blog data:', response.data);
+      if (Array.isArray(response.data)) {
+        setBlogs(response.data);
+      } else {
+        console.error('Invalid blog data format:', response.data);
+        setBlogsError('Received invalid data format from server');
+      }
+    } catch (error: any) {
+      console.error('Error fetching blogs:', error);
+      console.error('Error details:', error.response || error.message);
+      let errorMessage = 'Failed to load blogs. ';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. ';
+      } else if (error.response) {
+        errorMessage += `Server error: ${error.response.status}. `;
+      } else if (error.request) {
+        errorMessage += 'No response from server. ';
+      } else {
+        errorMessage += error.message;
+      }
+      setBlogsError(errorMessage + 'Please try again.');
+    } finally {
+      setBlogsLoading(false);
+    }
+  };
+
+  // Add useEffect to fetch blogs
+  useEffect(() => {
+    if (activeTab === 'blog') {
+      console.log('Blog tab active, fetching blogs...');
+      fetchBlogs();
+    }
+  }, [activeTab]);
+
+  const handleLikeBlog = async (blogId: string) => {
+    try {
+      const response = await axios.post(`${API_URL}/blogs/${blogId}/like`);
+      setBlogs(blogs.map(blog => 
+        blog.id === blogId 
+          ? { ...blog, likes: response.data.likes }
+          : blog
+      ));
+    } catch (error) {
+      console.error('Error liking blog:', error);
+      Alert.alert('Error', 'Failed to like the blog post.');
+    }
+  };
+
+  const handleAddComment = async (blogId: string) => {
+    if (!newComment.trim()) {
+      Alert.alert('Error', 'Please enter a comment.');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${API_URL}/blogs/${blogId}/comment`, {
+        comment: newComment
+      });
+      
+      setBlogs(blogs.map(blog => 
+        blog.id === blogId 
+          ? { ...blog, comments: [...blog.comments, response.data] }
+          : blog
+      ));
+      setNewComment('');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      Alert.alert('Error', 'Failed to add comment.');
+    }
+  };
 
   // Render search tab content
   const renderSearchTab = () => (
@@ -456,49 +622,127 @@ const LandingPage = () => {
               </View>
             </>
           )}
+
+          {predictionResult.alternatives && predictionResult.alternatives.length > 0 && (
+            <View style={styles.alternativesContainer}>
+              <Text style={styles.alternativesTitle}>Healthier Alternatives:</Text>
+              {predictionResult.alternatives.map((alternative, index) => (
+                <View key={index} style={styles.alternativeCard}>
+                  <View style={styles.alternativeHeader}>
+                    <Text style={styles.alternativeBrand}>{alternative["Brand Name"]}</Text>
+                    <View style={[
+                      styles.categoryBadge,
+                      {backgroundColor: alternative.Category.toLowerCase().includes('safe') ? '#4CAF50' : '#FF9800'}
+                    ]}>
+                      <Text style={styles.categoryText}>{alternative.Category}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.nutrientGrid}>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Energy</Text>
+                      <Text style={styles.nutrientValue}>{alternative["ENERGY(kcal)"]} kcal</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Protein</Text>
+                      <Text style={styles.nutrientValue}>{alternative["PROTEIN"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Carbs</Text>
+                      <Text style={styles.nutrientValue}>{alternative["CARBOHYDRATE"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Fat</Text>
+                      <Text style={styles.nutrientValue}>{alternative["TOTAL FAT"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Sugars</Text>
+                      <Text style={styles.nutrientValue}>{alternative["TOTAL SUGARS"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Sodium</Text>
+                      <Text style={styles.nutrientValue}>{alternative["SODIUM(mg)"]} mg</Text>
+                    </View>
+                  </View>
+
+                  {alternative.img && (
+                    <Image 
+                      source={{ uri: alternative.img }} 
+                      style={styles.alternativeImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       )}
     </Animated.ScrollView>
   );
 
-  const blogArticles = [
-    {
-      id: 1,
-      title: "How to Decode Food Labels Like a Pro",
-      snippet: "Learn how to identify hidden sugars and sodium traps...",
-      content:
-        "Food labels contain vital information about nutrition, ingredients, and allergens. Look for hidden sugars, sodium levels, and misleading 'organic' or 'natural' claims. Understanding these can help you make smarter food choices.",
-      image:
-        "https://static.toiimg.com/thumb/msid-113384723,imgsize-63238,width-400,resizemode-4/113384723.jpg",
-    },
-    {
-      id: 2,
-      title: "Top 5 Healthy Biscuit Brands Reviewed",
-      snippet: "After reviewing 15 popular brands, only 5 stood out...",
-      content:
-        "We found 5 biscuit brands that avoid harmful oils, excess sugar, and artificial additives. They use whole grains, natural sweeteners, and maintain controlled fat levels. Always choose snacks that support your health goals.",
-      image:
-        "https://i.ytimg.com/vi/fKxmRoD3_y4/sddefault.jpg",
-    },
-    {
-      id: 3,
-      title: "Is Your Favorite Snack Safe? Let's Find Out!",
-      snippet: "We analyzed the top snacks to check their ingredients...",
-      content:
-        "Many packaged snacks contain preservatives, flavor enhancers, and other chemicals that can be harmful if consumed regularly. Ingredients like MSG, artificial sweeteners, and trans fats should be avoided. Always read labels carefully before buying.",
-      image:
-        "https://www.eatthis.com/wp-content/uploads/sites/4/2020/05/snacks-in-america.jpg?quality=82&strip=1",
-    },
-  ];
-
   const renderBlogTab = () => {
-    const [selected, setSelected] = useState<number | null>(null);
+    const [selected, setSelected] = useState<string | null>(null);
   
+    // Helper function to get the selected blog
+    const getSelectedBlog = () => {
+      return blogs.find(blog => blog.id === selected);
+    };
+
+    if (blogsLoading) {
+      console.log('Showing loading state...');
+      return (
+        <Animated.View
+          style={[
+            styles.tabContent,
+            { opacity: blogOpacity, display: activeTab === 'blog' ? 'flex' : 'none' }
+          ]}
+        >
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loaderText}>Loading blogs...</Text>
+          </View>
+        </Animated.View>
+      );
+    }
+
+    if (blogsError) {
+      console.log('Showing error state:', blogsError);
+      return (
+        <Animated.View
+          style={[
+            styles.tabContent,
+            { opacity: blogOpacity, display: activeTab === 'blog' ? 'flex' : 'none' }
+          ]}
+        >
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="alert-circle" size={24} color="#D32F2F" />
+            <Text style={styles.errorText}>{blogsError}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={() => {
+                console.log('Retrying blog fetch...');
+                if (activeTab === 'blog') {
+                  setBlogsLoading(true);
+                  setBlogsError(null);
+                  fetchBlogs();
+                }
+              }}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      );
+    }
+  
+    const selectedBlog = getSelectedBlog();
+
     return (
       <Animated.View
         style={[
           styles.tabContent,
-          { display: activeTab === 'blog' ? 'flex' : 'none' },
+          { opacity: blogOpacity, display: activeTab === 'blog' ? 'flex' : 'none' }
         ]}
       >
         <View style={styles.headerBox}>
@@ -506,22 +750,72 @@ const LandingPage = () => {
           <Text style={styles.blogSubheader}>Read, Learn, and Eat Smart</Text>
         </View>
   
-        {selected ? (
+        {selected && selectedBlog ? (
           <ScrollView style={styles.blogDetail}>
-            <Text style={styles.blogTitle}>{blogArticles[selected - 1].title}</Text>
+            <Text style={styles.blogDate}>{selectedBlog.date}</Text>
+            <Text style={styles.blogTitle}>{selectedBlog.title}</Text>
             <Image
-              source={{ uri: blogArticles[selected - 1].image }}
+              source={{ uri: selectedBlog.image }}
               style={styles.blogImageLarge}
               resizeMode="cover"
             />
-            <Text style={styles.blogContent}>{blogArticles[selected - 1].content}</Text>
+            <View style={styles.blogContentContainer}>
+              {selectedBlog.content.split('\n\n').map((paragraph: string, index: number) => (
+                <Text key={index} style={styles.blogContent}>
+                  {paragraph.replace(/\n/g, ' ')}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.interactionSection}>
+              <TouchableOpacity 
+                style={styles.likeButton} 
+                onPress={() => handleLikeBlog(selected)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons 
+                  name="heart" 
+                  size={24} 
+                  color="#4CAF50" 
+                />
+                <Text style={styles.likeCount}>{selectedBlog.likes} likes</Text>
+              </TouchableOpacity>
+
+              <View style={styles.commentSection}>
+                <Text style={styles.commentHeader}>Comments</Text>
+                <View style={styles.commentInput}>
+                  <TextInput
+                    style={styles.commentTextInput}
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    placeholder="Add a comment..."
+                    multiline
+                  />
+                  <TouchableOpacity 
+                    style={styles.commentButton}
+                    onPress={() => handleAddComment(selected)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.commentButtonText}>Post</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {selectedBlog.comments.map((comment: { id: number; text: string; date: string }) => (
+                  <View key={comment.id} style={styles.commentItem}>
+                    <Text style={styles.commentDate}>{comment.date}</Text>
+                    <Text style={styles.commentText}>{comment.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
             <TouchableOpacity onPress={() => setSelected(null)} style={styles.backButton}>
               <Text style={styles.backButtonText}>← Back to articles</Text>
             </TouchableOpacity>
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.blogList}>
-            {blogArticles.map((article, index) => {
+            {blogs.map((article) => {
               const fadeAnim = new Animated.Value(0);
               const translateY = new Animated.Value(50);
   
@@ -529,13 +823,13 @@ const LandingPage = () => {
                 Animated.timing(fadeAnim, {
                   toValue: 1,
                   duration: 300,
-                  delay: index * 100,
+                  delay: parseInt(article.id) * 100,
                   useNativeDriver: true,
                 }),
                 Animated.timing(translateY, {
                   toValue: 0,
                   duration: 300,
-                  delay: index * 100,
+                  delay: parseInt(article.id) * 100,
                   useNativeDriver: true,
                 }),
               ]).start();
@@ -556,6 +850,16 @@ const LandingPage = () => {
                     <View style={styles.blogTextContent}>
                       <Text style={styles.blogTitleSmall}>{article.title}</Text>
                       <Text style={styles.blogSnippet}>{article.snippet}</Text>
+                      <View style={styles.blogMetrics}>
+                        <View style={styles.metricItem}>
+                          <MaterialCommunityIcons name="heart" size={16} color="#4CAF50" />
+                          <Text style={styles.metricText}>{article.likes}</Text>
+                        </View>
+                        <View style={styles.metricItem}>
+                          <MaterialCommunityIcons name="comment" size={16} color="#4CAF50" />
+                          <Text style={styles.metricText}>{article.comments.length}</Text>
+                        </View>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </Animated.View>
@@ -573,15 +877,36 @@ const LandingPage = () => {
       <StatusBar backgroundColor="#4CAF50" barStyle="light-content" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>FoodX</Text>
-
-        <TouchableOpacity onPress={handleLogout}>
-          <MaterialCommunityIcons name="logout" size={24} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={toggleSidebar} style={styles.chatButton}>
+            <MaterialCommunityIcons name="chat" size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <MaterialCommunityIcons name="logout" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
       
+      {/* Add Sidebar */}
+      <Animated.View style={[
+        styles.sidebar,
+        {
+          transform: [{
+            translateX: sidebarAnimation
+          }]
+        }
+      ]}>
+        <View style={styles.sidebarHeader}>
+          <TouchableOpacity onPress={toggleSidebar} style={styles.closeSidebar}>
+            <MaterialCommunityIcons name="close" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
+        <Chatbot />
+      </Animated.View>
+
       <View style={styles.tabsContainer}>
         <TouchableOpacity 
-          style={styles.tab} 
+          style={[styles.tab, { width: tabWidth }]} 
           onPress={() => switchTab('search')}
           activeOpacity={0.7}
         >
@@ -596,7 +921,7 @@ const LandingPage = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.tab} 
+          style={[styles.tab, { width: tabWidth }]} 
           onPress={() => switchTab('scan')}
           activeOpacity={0.7}
         >
@@ -611,7 +936,7 @@ const LandingPage = () => {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.tab} 
+          style={[styles.tab, { width: tabWidth }]} 
           onPress={() => switchTab('blog')}
           activeOpacity={0.7}
         >
@@ -628,7 +953,10 @@ const LandingPage = () => {
         <Animated.View 
           style={[
             styles.tabIndicator, 
-            { transform: [{ translateX: tabIndicatorPosition }] }
+            { 
+              transform: [{ translateX: tabIndicatorPosition }],
+              width: tabWidth
+            }
           ]} 
         />
       </View>
@@ -645,6 +973,79 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  
+  interactionSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    width: Platform.OS === 'web' ? '60%' : '90%',
+    alignSelf: 'center',
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Platform.OS === 'web' ? 10 : 8,
+  },
+  likeCount: {
+    marginLeft: 8,
+    color: '#666',
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+  },
+  commentSection: {
+    marginTop: 20,
+    width: Platform.OS === 'web' ? '60%' : '90%',
+    alignSelf: 'center',
+  },
+  commentHeader: {
+    fontSize: Platform.OS === 'web' ? 18 : 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  commentInput: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  commentTextInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: Platform.OS === 'web' ? 12 : 8,
+    marginRight: 8,
+    minHeight: 40,
+    fontSize: Platform.OS === 'web' ? 14 : 13,
+  },
+  commentButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: Platform.OS === 'web' ? 12 : 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: Platform.OS === 'web' ? 80 : 60,
+  },
+  commentButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: Platform.OS === 'web' ? 14 : 12,
+  },
+  commentItem: {
+    backgroundColor: '#f5f5f5',
+    padding: Platform.OS === 'web' ? 12 : 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  commentDate: {
+    fontSize: Platform.OS === 'web' ? 12 : 10,
+    color: '#666',
+    marginBottom: 4,
+  },
+  commentText: {
+    fontSize: Platform.OS === 'web' ? 14 : 13,
+    color: '#333',
+  },
   header: {
     backgroundColor: "#4CAF50",
     paddingVertical: 16,
@@ -654,12 +1055,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     color: "white",
-    textAlign: "center",
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  chatButton: {
+    padding: 8,
   },
   tabsContainer: {
     flexDirection: "row",
@@ -672,17 +1083,15 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   tab: {
-    flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 12,
+    flexDirection: "row",
     gap: 8,
   },
   tabIndicator: {
     position: "absolute",
     bottom: 0,
-    width: width / 2,
     height: 3,
     backgroundColor: "#4CAF50",
   },
@@ -690,6 +1099,9 @@ const styles = StyleSheet.create({
     color: "#757575",
     fontWeight: "500",
   },
+  
+  
+ 
   activeTabText: {
     color: "#4CAF50",
     fontWeight: "bold",
@@ -972,87 +1384,247 @@ const styles = StyleSheet.create({
   },
 
   blogHeader: {
-    fontSize: 22,
+    fontSize: Platform.OS === 'web' ? 22 : 20,
     fontWeight: "bold",
     color: "#333",
     textAlign: "center",
-    marginTop: 10,
+    marginTop: Platform.OS === 'web' ? 10 : 8,
   },
+
   blogSubheader: {
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     color: "#666",
     textAlign: "center",
-    marginBottom: 20,
+    
   },
   blogList: {
     paddingHorizontal: 15,
+    paddingTop: 10,
   },
   blogCard: {
-    flexDirection: 'row',
-    marginBottom: 15,
-    width: '90%', // Reduced width
-    maxWidth: 500, // Limit maximum width
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-    overflow: 'hidden',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    marginLeft: 'auto',
-    marginRight: 'auto', // Center the card
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginBottom: 20,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    width: Platform.OS === 'web' ? '60%' : '90%',
+    alignSelf: 'center',
   },
   blogImage: {
-    width: 750, // Adjust image width
-    height: 220, // Adjust image height
-    objectFit: 'cover',
-  },
-  blogImageLarge: {
-    width: "100%",
-    height: 250,
-    borderRadius: 10,
-    marginVertical: 15,
+    width: '100%',
+    height: Platform.OS === 'web' ? 180 : 200,
+    borderRadius: 8,
+    marginBottom: 12,
   },
   blogTextContent: {
-    padding: 10,
+    gap: 8,
+    width: '100%',
   },
   blogTitleSmall: {
-    fontSize: 18,
+    fontSize: Platform.OS === 'web' ? 20 : 18,
     fontWeight: "600",
-    color: "#222",
+    color: '#333333',
+    marginBottom: 8,
+    lineHeight: Platform.OS === 'web' ? 24 : 22,
+    textAlign: 'left',
   },
   blogSnippet: {
-    fontSize: 14,
-    color: '#555',
+    fontSize: Platform.OS === 'web' ? 14 : 13,
+    color: '#666666',
+    lineHeight: Platform.OS === 'web' ? 20 : 18,
+    textAlign: 'left',
+    paddingHorizontal: 4,
   },
   blogDetail: {
-    padding: 15,
+    flex: 1,
+    padding: Platform.OS === 'web' ? 24 : 16,
+    backgroundColor: '#F7FAFC',
+  },
+  blogDate: {
+    fontSize: Platform.OS === 'web' ? 14 : 12,
+    color: '#718096',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   blogTitle: {
-    fontSize: 18,
+    fontSize: Platform.OS === 'web' ? 32 : 24,
     fontWeight: 'bold',
-    marginBottom: 10,
+    color: '#1A365D',
+    marginBottom: 16,
+    textAlign: 'center',
+    width: Platform.OS === 'web' ? '70%' : '90%',
+    alignSelf: 'center',
+    letterSpacing: 0.5,
+    lineHeight: Platform.OS === 'web' ? 40 : 32,
+  },
+  blogImageLarge: {
+    width: Platform.OS === 'web' ? '60%' : '90%',
+    height: Platform.OS === 'web' ? width * 0.2 : width * 0.5,
+    borderRadius: 16,
+    marginBottom: 24,
+    alignSelf: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   blogContent: {
-     fontSize: 16,
-    lineHeight: 1.5,
-    color: '#333',
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    lineHeight: Platform.OS === 'web' ? 26 : 22,
+    color: '#2C3E50',
+    marginBottom: 16,
+    textAlign: 'left',
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 12,
+    flexWrap: 'wrap',
+    width: Platform.OS === 'web' ? '60%' : '90%',
+    alignSelf: 'center',
+    letterSpacing: 0.3,
   },
-  backButton: {
+  blogContentContainer: {
     marginTop: 20,
-    padding: 10,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 8,
-    alignSelf: "center",
+    flexDirection: 'column',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: Platform.OS === 'web' ? 24 : 16,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  
+  
+  backButton: {
+    marginTop: 32,
+    marginBottom: 24,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    backgroundColor: '#EDF2F7',
+    borderRadius: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   backButtonText: {
-    fontSize: 16,
-    color: "#000",
-  },
-  blogCardHover: {
-    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    color: '#2D3748',
+    fontWeight: '600',
   },
   
-  
+  sidebar: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 500,
+    height: '100%',
+    backgroundColor: '#fff',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: -2,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  sidebarHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  closeSidebar: {
+    padding: 8,
+  },
+  headerBox: {
+    padding: Platform.OS === 'web' ? 15 : 12,
+    marginBottom: Platform.OS === 'web' ? 10 : 8,
+  },
+  blogMetrics: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 16,
+  },
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricText: {
+    fontSize: Platform.OS === 'web' ? 14 : 12,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  retryButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  alternativesContainer: {
+    marginTop: 24,
+    width: '100%',
+  },
+  alternativesTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  alternativeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  alternativeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  alternativeBrand: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  categoryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  categoryText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  alternativeImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 12,
+  },
 });
 
 export default LandingPage;
