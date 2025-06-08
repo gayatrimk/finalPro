@@ -19,10 +19,26 @@ from flask import Flask, request, jsonify
 from google.cloud import vision
 from flask_cors import CORS
 import joblib  # For saving and loading the model
+import cv2
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+import pytesseract
+from PIL import Image
+import io
+import base64
+import json
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configure Google AI
+genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 
 app = Flask(__name__)
 client = vision.ImageAnnotatorClient.from_service_account_file('acc.json')
-CORS(app)  # Enable CORS for localhost frontend
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Define paths for the model and scaler
 MODEL_PATH = 'food_classification_model.h5'
@@ -133,7 +149,17 @@ if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH) or not os.p
     print(f"Trained model saved to {MODEL_PATH}")
 else:
     # Load the trained model, scaler, and encoder
-    model = keras.models.load_model(MODEL_PATH)
+    try:
+        # First try loading with the newer format
+        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    except:
+        try:
+            # If that fails, try with custom objects
+            model = keras.models.load_model(MODEL_PATH, custom_objects={'InputLayer': tf.keras.layers.InputLayer})
+        except:
+            # If both fail, try loading with legacy format
+            model = tf.keras.models.load_model(MODEL_PATH, compile=False, custom_objects={'InputLayer': tf.keras.layers.InputLayer})
+    
     scaler = joblib.load(SCALER_PATH)
     encoder = joblib.load(ENCODER_PATH)
     print(f"Loaded trained model from {MODEL_PATH}")
@@ -141,24 +167,44 @@ else:
 @app.route("/ocr", methods=["POST"])
 def newFun():
     print("Inside flask backend")
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
-
-    image_file = request.files['image']
-    if image_file.filename == '':
-        return jsonify({'error': 'No selected image file'}), 400
-
     try:
+        if 'image' not in request.files:
+            print("No image file in request")
+            return jsonify({'error': 'No image file provided'}), 400
+
+        image_file = request.files['image']
+        if image_file.filename == '':
+            print("Empty filename")
+            return jsonify({'error': 'No selected image file'}), 400
+
+        print(f"Received file: {image_file.filename}")
+        
+        # Read image bytes
         image_bytes = image_file.read()
+        if not image_bytes:
+            print("Empty image file")
+            return jsonify({'error': 'Empty image file'}), 400
+
+        # Create Vision API image object
         image = vision.Image(content=image_bytes)
-        response = client.document_text_detection(image=image)
+        
+        # Perform OCR
+        try:
+            response = client.document_text_detection(image=image)
+        except Exception as e:
+            print(f"Vision API error: {str(e)}")
+            return jsonify({'error': f'Vision API error: {str(e)}'}), 500
 
         if response.error.message:
+            print(f"Vision API error message: {response.error.message}")
             return jsonify({'error': response.error.message}), 500
 
+        # Process the text
         full_text = response.full_text_annotation.text
         cleaned_text = re.sub(r'[\s]{2,}', ' ', full_text).strip()
+        print(f"Extracted text: {cleaned_text[:100]}...")  # Print first 100 chars
 
+        # Extract nutrition data
         nutrition_data = {}
         for key in nutrition_keys:
             pattern = rf'{key}[^\d]*([\d.]+)\s*(kcal|g|mg|kJ|%)?'
@@ -174,14 +220,17 @@ def newFun():
 
         print("Extracted Nutrition Data:", nutrition_data)
 
+        # Process nutrition values
         sugar_info = nutrition_data.get("Sugars") or nutrition_data.get("Total Sugars") or nutrition_data.get("Of which Sugar")
         fat_info = nutrition_data.get("Total Fat") or nutrition_data.get("Fat")
         sodium_value = 0.0
+        
+        # Extract sodium value
         if "Sodium" in nutrition_data and isinstance(nutrition_data["Sodium"], dict) and 'value' in nutrition_data["Sodium"]:
             sodium_value = nutrition_data["Sodium"]["value"]
         elif "sodium" in nutrition_data and isinstance(nutrition_data["sodium"], dict) and 'value' in nutrition_data["sodium"]:
             sodium_value = nutrition_data["sodium"]["value"]
-        elif any("sodium" in k.lower() for k in nutrition_data): # Check for "sodium" (case-insensitive) in keys
+        elif any("sodium" in k.lower() for k in nutrition_data):
             for key, value_dict in nutrition_data.items():
                 if "sodium" in key.lower() and isinstance(value_dict, dict) and 'value' in value_dict:
                     sodium_value = value_dict['value']
@@ -189,33 +238,40 @@ def newFun():
 
         sugar_value = sugar_info['value'] if sugar_info and 'value' in sugar_info else 0.0
         fat_value = fat_info['value'] if fat_info and 'value' in fat_info else 0.0
-        #sodium_value = sodium_info['value'] if sodium_info and 'value' in sodium_info else 0.0
 
-        print(f"Sugar: {sugar_value}, Fat: {fat_value}, Sodium: {sodium_value}")
+        print(f"Processed values - Sugar: {sugar_value}, Fat: {fat_value}, Sodium: {sodium_value}")
 
+        # Prepare data for prediction
         new_data = np.array([[sugar_value, fat_value, sodium_value]])
         new_data_scaled = scaler.transform(new_data)
-        prediction = model.predict(new_data_scaled)
-
-        # Get predicted category
-        predicted_index = np.argmax(prediction)
-        predicted_label_encoded = np.zeros_like(prediction)
-        predicted_label_encoded[0][predicted_index] = 1
-        predicted_label = encoder.inverse_transform(predicted_label_encoded)[0][0]
-
-        # Use classification logic to explain why
-        temp_row = pd.Series({"TOTAL SUGARS": sugar_value, "TOTAL FAT": fat_value, "SODIUM(mg)": sodium_value})
-        _, reasons = classify_food(temp_row)
-        explanation = f" As the product contains {' and '.join(reasons)}." if reasons else " The product is within safe limits."
-
-        # Display result
-        print(f"Predicted Category: {predicted_label}{explanation}")
-
-        return jsonify({"message": f"Model Prediction: {predicted_label}", "explanation": explanation, "nutrition_data": nutrition_data}), 200
+        
+        # Make prediction
+        try:
+            prediction = model.predict(new_data_scaled)
+            predicted_class = encoder.inverse_transform(prediction)[0][0]
+            print(f"Predicted class: {predicted_class}")
+            
+            # Prepare response
+            response_data = {
+                'message': f"This food is {predicted_class}",
+                'explanation': f"Based on the nutritional values: Sugar ({sugar_value}g), Fat ({fat_value}g), Sodium ({sodium_value}mg)",
+                'nutrition_data': nutrition_data
+            }
+            
+            return jsonify(response_data)
+            
+        except Exception as e:
+            print(f"Prediction error: {str(e)}")
+            return jsonify({'error': f'Prediction error: {str(e)}'}), 500
 
     except Exception as e:
-        print(f"Error processing image: {e}")
-        return jsonify({'error': f'Failed to process image: {str(e)}'}), 500
+        print(f"General error: {str(e)}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001) # Ensure the port matches your frontend
+    # Update the host to '0.0.0.0' to allow connections from any IP
+    app.run(host='0.0.0.0', port=5001, debug=True)

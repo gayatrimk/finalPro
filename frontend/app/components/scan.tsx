@@ -15,8 +15,10 @@ import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-// Add API URL configuration
-const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5002' : 'http://192.168.178.249:5002';
+// Update the API URL configuration
+const API_URL = Platform.OS === 'web' 
+  ? 'http://localhost:5001' 
+  : 'http://192.168.1.42:5001'; // Replace with your computer's actual IP address
 const API_TIMEOUT = 5000;
 
 interface NutritionValue {
@@ -41,6 +43,12 @@ interface PredictionResult {
   }>;
 }
 
+interface FileObject {
+  uri: string;
+  type: string;
+  name: string;
+}
+
 const ScanComponent = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
@@ -49,22 +57,120 @@ const ScanComponent = () => {
 
   // Image picker functionality
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "You need to grant permission to access images.");
-      return;
+    try {
+      if (Platform.OS === 'web') {
+        // Create a file input element for web
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        
+        // Create a promise to handle the file selection
+        const filePromise = new Promise((resolve) => {
+          input.onchange = (e: Event) => {
+            const target = e.target as HTMLInputElement;
+            if (target.files && target.files[0]) {
+              resolve(target.files[0]);
+            }
+          };
+        });
+        
+        // Trigger file selection
+        input.click();
+        
+        // Wait for file selection
+        const file = await filePromise as File;
+        
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setSelectedImage(event.target.result as string);
+            setPredictionResult(null);
+            setError(null);
+          }
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // Mobile platform handling
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission Denied", "You need to grant permission to access images.");
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 1,
+          base64: false,
+          exif: false,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          setSelectedImage(result.assets[0].uri);
+          setPredictionResult(null);
+          setError(null);
+        }
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
+  // Add new function for camera capture
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "You need to grant permission to access the camera.");
+        return;
+      }
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setSelectedImage(result.assets[0].uri);
-      setPredictionResult(null);
-      setError(null);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedImage(result.assets[0].uri);
+        setPredictionResult(null);
+        setError(null);
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      Alert.alert("Error", "Failed to take photo. Please try again.");
+    }
+  };
+
+  // Update the pickImage function to show options
+  const showImageOptions = () => {
+    if (Platform.OS === 'web') {
+      // For web, directly trigger file selection
+      pickImage();
+    } else {
+      // For mobile, show the options dialog
+      Alert.alert(
+        "Choose Image Source",
+        "Select how you want to upload an image",
+        [
+          {
+            text: "Take Photo",
+            onPress: takePhoto,
+          },
+          {
+            text: "Choose from Gallery",
+            onPress: pickImage,
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ]
+      );
     }
   };
 
@@ -79,6 +185,17 @@ const ScanComponent = () => {
     return new Blob([byteArray], { type: contentType });
   };
 
+  // Add a function to check server availability
+  const checkServerAvailability = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/health`, { timeout: 2000 });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Server check failed:', error);
+      return false;
+    }
+  };
+
   // Image upload and analysis
   const uploadImage = async () => {
     if (!selectedImage) {
@@ -91,39 +208,47 @@ const ScanComponent = () => {
     setPredictionResult(null);
 
     try {
+      // Check server availability first
+      const isServerAvailable = await checkServerAvailability();
+      if (!isServerAvailable) {
+        throw new Error(`Server is not available at ${API_URL}. Please make sure the server is running.`);
+      }
+
       const formData = new FormData();
       
-      if (Platform.OS === 'web' && selectedImage.startsWith('data:')) {
+      if (Platform.OS === 'web') {
         // Handle web platform
-        const contentTypeMatch = selectedImage.match(/^data:(.*?);/);
-        const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
-        const base64Data = selectedImage;
-        const fileBlob = base64toBlob(base64Data, contentType);
-        formData.append('image', fileBlob, 'upload.jpg');
+        if (selectedImage.startsWith('data:')) {
+          const contentTypeMatch = selectedImage.match(/^data:(.*?);/);
+          const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
+          const base64Data = selectedImage;
+          const fileBlob = base64toBlob(base64Data, contentType);
+          formData.append('image', fileBlob, 'upload.jpg');
+        }
       } else {
         // Handle mobile platforms
         const localUri = selectedImage;
         const filename = localUri.split('/').pop();
         
-        // Infer the type of the image
-        const match = /\.(\w+)$/.exec(filename || '');
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        const fileObject = {
+          uri: Platform.OS === 'android' ? localUri : localUri.replace('file://', ''),
+          type: 'image/jpeg',
+          name: filename || 'upload.jpg'
+        };
         
-        formData.append('image', {
-          uri: localUri,
-          name: filename || 'upload.jpg',
-          type,
-        } as any);
+        formData.append('image', fileObject as any);
       }
 
       console.log("✅ Selected Image URI:", selectedImage);
       console.log("✅ FormData prepared for upload");
+      console.log("✅ API URL:", API_URL);
 
       const response = await axios.post(`${API_URL}/ocr`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Accept': 'application/json',
         },
+        timeout: API_TIMEOUT,
         transformRequest: (data, headers) => {
           return formData;
         },
@@ -141,13 +266,18 @@ const ScanComponent = () => {
     } catch (error: any) {
       console.error("Upload error:", error);
       let errorMessage = "Upload failed: ";
+      
       if (error.response) {
+        console.error("Error response:", error.response.data);
         errorMessage += error.response.data?.error || error.response.data?.message || error.message;
       } else if (error.request) {
-        errorMessage += "No response from server. Please check your connection.";
+        console.error("No response received:", error.request);
+        errorMessage += `No response from server. Please check your connection and make sure the server is running at ${API_URL}`;
       } else {
+        console.error("Error message:", error.message);
         errorMessage += error.message;
       }
+      
       setError(errorMessage);
       Alert.alert("Upload Failed", errorMessage);
     } finally {
@@ -165,11 +295,11 @@ const ScanComponent = () => {
       {!selectedImage ? (
         <TouchableOpacity 
           style={styles.uploadButton} 
-          onPress={pickImage}
+          onPress={showImageOptions}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="image-plus" size={40} color="#fff" />
-          <Text style={styles.uploadButtonText}>Select Image</Text>
+          <MaterialCommunityIcons name="camera-plus" size={40} color="#fff" />
+          <Text style={styles.uploadButtonText}>Upload Image</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.imagePreviewContainer}>
@@ -179,7 +309,7 @@ const ScanComponent = () => {
           <View style={styles.imageActionButtons}>
             <TouchableOpacity 
               style={styles.changeImageButton} 
-              onPress={pickImage}
+              onPress={showImageOptions}
               activeOpacity={0.7}
             >
               <Text style={styles.changeImageText}>Change</Text>

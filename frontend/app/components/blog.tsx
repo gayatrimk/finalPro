@@ -19,7 +19,7 @@ import GenerateBlogButton from './GenerateBlogButton';
 const width = Dimensions.get('window').width;
 
 // Add API URL configuration
-const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5002' : 'http://192.168.178.249:5002';
+const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5002' : 'http://192.168.1.42:5002';
 const API_TIMEOUT = 5000;
 
 const BlogComponent = () => {
