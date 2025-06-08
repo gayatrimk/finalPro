@@ -159,6 +159,10 @@ const SearchComponent = () => {
                       <Text style={styles.nutrientLabel}>Sodium</Text>
                       <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
                     </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Category</Text>
+                      <Text style={styles.nutrientValue}>{item["Category"] ?? "N/A"}</Text>
+                    </View>
                   </View>
                 </View>
 

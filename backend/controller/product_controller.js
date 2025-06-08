@@ -59,7 +59,7 @@ exports.searchBiscuit = catchAsync(async (req, res) => {
   console.log("inside search fun..");
         const searchQuery = req.body.query;
         if (!searchQuery) {
-          console.log(searchQuery);
+          //console.log(searchQuery);
             return res.status(400).json({ message: "Search query is required" });
         }
 
@@ -68,7 +68,7 @@ exports.searchBiscuit = catchAsync(async (req, res) => {
                 { "Brand Name": { $regex: searchQuery, $options: "i" } },
             ]
         });
-        console.log("Raw Search Results:", results);
+        //console.log("Raw Search Results:", results);
         if (results.length === 0) {
             return res.status(404).json({ message: "No matching results found" });
         }
