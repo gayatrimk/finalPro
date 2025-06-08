@@ -24,19 +24,54 @@ const Chatbot = () => {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const scrollViewRef = React.useRef<ScrollView>(null);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+  const sampleQuestions = [
+    "How to read nutrition labels on food packages?",
+    "What are common harmful ingredients in biscuits?",
+    "What do food certification labels mean?"
+  ];
 
-    const newMessages = [...messages, { role: 'user', content: input }];
+  const handleSampleQuestion = (question: string) => {
+    setInput(question);
+    sendMessage(question);
+  };
+
+  const scrollToBottom = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  };
+
+  // Add initial message
+  React.useEffect(() => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: 'Hi! I can help you analyze food labels, understand nutritional information, and provide health-conscious food recommendations. What would you like to know about your packaged food?'
+      }
+    ]);
+  }, []);
+
+  // Auto scroll when messages change
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async (messageText?: string) => {
+    const textToSend = messageText || input;
+    if (!textToSend.trim()) return;
+
+    const newMessages = [...messages, { role: 'user', content: textToSend }];
     setMessages(newMessages);
     setLoading(true);
+    setInput('');
 
     try {
       const res = await fetch('http://127.0.0.1:5000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: textToSend }),
       });
 
       const data = await res.json();
@@ -45,7 +80,6 @@ const Chatbot = () => {
       console.error(err);
       setMessages([...newMessages, { role: 'assistant', content: 'Error connecting to the server.' }]);
     } finally {
-      setInput('');
       setLoading(false);
     }
   };
@@ -61,9 +95,27 @@ const Chatbot = () => {
     >
       <View style={styles.chatContainer}>
         <View style={styles.chatHeader}>
-          <Text style={styles.chatHeaderText}>How can I help you today?</Text>
+          <Text style={styles.chatHeaderText}>Food Label Analysis Assistant</Text>
+          <Text style={styles.chatSubHeaderText}>Ask about ingredients, nutrition & health advice</Text>
         </View>
-        <ScrollView style={styles.messagesContainer}>
+
+        <View style={styles.sampleQuestionsContainer}>
+          {sampleQuestions.map((question, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.sampleQuestionButton}
+              onPress={() => handleSampleQuestion(question)}
+            >
+              <Text style={styles.sampleQuestionText}>{question}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          onContentSizeChange={scrollToBottom}
+        >
           {messages.map((msg, index) => (
             <View 
               key={index} 
@@ -98,7 +150,7 @@ const Chatbot = () => {
           />
           <TouchableOpacity 
             style={styles.sendButton} 
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
             disabled={loading}
           >
             <MaterialCommunityIcons 
@@ -117,33 +169,39 @@ const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: "#f5f5f5",
+      paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight : 0,
     },
     chatContainer: {
       flex: 1,
-      paddingHorizontal: 16,
-      paddingBottom: 16,
+      paddingHorizontal: 12,
+      paddingBottom: 8,
     },
     chatHeader: {
-      padding: 16,
+      padding: 12,
       borderBottomWidth: 1,
       borderBottomColor: '#e0e0e0',
       backgroundColor: '#f8f9fa',
     },
     chatHeaderText: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '600',
       color: '#2c3e50',
       textAlign: 'center',
     },
+    chatSubHeaderText: {
+      fontSize: 14,
+      color: '#999',
+      textAlign: 'center',
+    },
     messagesContainer: {
       flex: 1,
-      marginBottom: 16,
+      marginBottom: 8,
     },
     messageWrapper: {
-      maxWidth: '80%',
-      marginVertical: 4,
-      padding: 12,
-      borderRadius: 16,
+      maxWidth: '75%',
+      marginVertical: 3,
+      padding: 10,
+      borderRadius: 12,
     },
     userMessage: {
       alignSelf: 'flex-end',
@@ -154,7 +212,7 @@ const styles = StyleSheet.create({
       backgroundColor: '#f0f0f0',
     },
     messageText: {
-      fontSize: 16,
+      fontSize: 14,
       color: '#333',
     },
     userMessageText: {
@@ -164,11 +222,11 @@ const styles = StyleSheet.create({
       color: '#333',
     },
     loadingContainer: {
-      padding: 8,
+      padding: 6,
       alignItems: 'center',
     },
     loadingText: {
-      fontSize: 16,
+      fontSize: 14,
       color: '#999',
     },
     inputContainer: {
@@ -176,26 +234,43 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       borderTopWidth: 1,
       borderTopColor: '#e0e0e0',
-      paddingTop: 8,
+      paddingTop: 6,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
     input: {
       flex: 1,
-      minHeight: 40,
-      maxHeight: 100,
+      minHeight: 36,
+      maxHeight: 80,
       backgroundColor: '#f5f5f5',
-      borderRadius: 20,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      marginRight: 8,
-      fontSize: 16,
+      borderRadius: 18,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      marginRight: 6,
+      fontSize: 14,
     },
     sendButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       backgroundColor: '#fff',
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    sampleQuestionsContainer: {
+      padding: 10,
+      gap: 8,
+    },
+    sampleQuestionButton: {
+      backgroundColor: '#f0f0f0',
+      padding: 10,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
+    sampleQuestionText: {
+      fontSize: 14,
+      color: '#666',
+      textAlign: 'left',
     },
 });
 

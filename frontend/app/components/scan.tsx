@@ -1,7 +1,23 @@
-import React, { useState, useEffect } from "react";
-import { View, Button, Image, Alert, StyleSheet, ActivityIndicator, Text, Platform } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Image,
+  Platform,
+  Alert,
+  ScrollView,
+  Animated,
+} from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+// Add API URL configuration
+const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5002' : 'http://192.168.178.249:5002';
+const API_TIMEOUT = 5000;
 
 interface NutritionValue {
   value: number | null;
@@ -11,27 +27,27 @@ interface NutritionValue {
 interface PredictionResult {
   message: string;
   explanation: string;
-  nutrition_data?: { [key: string]: NutritionValue }; // Explicitly define the structure
+  nutrition_data?: { [key: string]: NutritionValue };
+  alternatives?: Array<{
+    "Brand Name": string;
+    "ENERGY(kcal)": string | number;
+    "PROTEIN": string | number;
+    "CARBOHYDRATE": string | number;
+    "TOTAL SUGARS": string | number;
+    "TOTAL FAT": string | number;
+    "SODIUM(mg)": string | number;
+    "Category": string;
+    "img": string | null;
+  }>;
 }
 
-const ImageUploadScreen = () => {
+const ScanComponent = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null); // Explicitly type the state
+  const [imageLoading, setImageLoading] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Function to convert base64 to Blob (for web)
-  const base64toBlob = (base64Data: string, contentType = 'image/jpeg') => {
-    const byteCharacters = atob(base64Data.split(',')[1]);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: contentType });
-  };
-
-  // Pick Image Function
+  // Image picker functionality
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -47,180 +63,488 @@ const ImageUploadScreen = () => {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setSelectedImage(result.assets[0].uri);
-      setPredictionResult(null); // Clear previous result
+      setPredictionResult(null);
       setError(null);
-      console.log("✅ Selected Image URI:", result.assets[0].uri);
     }
   };
 
-  // Upload Image Function
+  // Function to convert base64 to Blob (for web)
+  const base64toBlob = (base64Data: string, contentType = 'image/jpeg') => {
+    const byteCharacters = atob(base64Data.split(',')[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: contentType });
+  };
+
+  // Image upload and analysis
   const uploadImage = async () => {
     if (!selectedImage) {
       Alert.alert("No Image Selected", "Please pick an image first.");
       return;
     }
 
-    setLoading(true);
+    setImageLoading(true);
     setError(null);
     setPredictionResult(null);
 
     try {
       const formData = new FormData();
-      const filename = selectedImage.split('/').pop() || 'upload.jpg';
-      let fileBlob;
-
+      
       if (Platform.OS === 'web' && selectedImage.startsWith('data:')) {
+        // Handle web platform
         const contentTypeMatch = selectedImage.match(/^data:(.*?);/);
         const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
         const base64Data = selectedImage;
-        fileBlob = base64toBlob(base64Data, contentType);
-        formData.append('image', fileBlob, filename); // Append Blob with filename
+        const fileBlob = base64toBlob(base64Data, contentType);
+        formData.append('image', fileBlob, 'upload.jpg');
       } else {
-        const fileExt = selectedImage.split('.').pop();
-        const mimeType = fileExt ? `image/${fileExt}` : "image/jpeg";
-        const photo: any = {
-          uri: selectedImage,
-          type: mimeType,
-          name: filename,
-        };
-        formData.append('image', photo); // For native platforms
+        // Handle mobile platforms
+        const localUri = selectedImage;
+        const filename = localUri.split('/').pop();
+        
+        // Infer the type of the image
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('image', {
+          uri: localUri,
+          name: filename || 'upload.jpg',
+          type,
+        } as any);
       }
 
-      console.log("✅ Selected Image URI (before FormData log):", selectedImage);
-      console.log("✅ FormData before sending:");
-      for (let pair of formData.entries()) {
-        console.log(`${pair[0]}:`, pair[1]);
-      }
+      console.log("✅ Selected Image URI:", selectedImage);
+      console.log("✅ FormData prepared for upload");
 
-      const response = await axios.post("http://127.0.0.1:5001/ocr", formData, {
+      const response = await axios.post(`${API_URL}/ocr`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          Accept: "application/json",
+          'Accept': 'application/json',
+        },
+        transformRequest: (data, headers) => {
+          return formData;
         },
       });
 
       console.log("✅ Request sent to backend");
       console.log("✅ API Response:", response.data);
+      
       if (response.status === 200) {
         setPredictionResult(response.data);
         Alert.alert("Upload Successful", "Image processed successfully!");
       } else {
-        setError("Failed to process image. Please try again.");}
+        setError("Failed to process image. Please try again.");
+      }
     } catch (error: any) {
-      console.error("Upload error:", error.message);
-      setError("Upload failed: " + error.message);
-      Alert.alert("Upload Failed", "Something went wrong.");
+      console.error("Upload error:", error);
+      let errorMessage = "Upload failed: ";
+      if (error.response) {
+        errorMessage += error.response.data?.error || error.response.data?.message || error.message;
+      } else if (error.request) {
+        errorMessage += "No response from server. Please check your connection.";
+      } else {
+        errorMessage += error.message;
+      }
+      setError(errorMessage);
+      Alert.alert("Upload Failed", errorMessage);
     } finally {
-      setLoading(false);
+      setImageLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Food Nutrition Classifier</Text>
-      {!selectedImage && <Button title="Pick an Image" onPress={pickImage} />}
+    <Animated.ScrollView style={styles.tabContent} contentContainerStyle={styles.imageTabContainer}>
+      <Text style={styles.imageTabTitle}>Food Nutrition Classifier</Text>
+      <Text style={styles.imageTabSubtitle}>
+        Upload a food package image to analyze its nutritional content
+      </Text>
 
-      {selectedImage && (
-        <>
-          <Image source={{ uri: selectedImage }} style={styles.image} />
-          <Button title="Analyze Image" onPress={uploadImage} color="#1E90FF" />
-        </>
+      {!selectedImage ? (
+        <TouchableOpacity 
+          style={styles.uploadButton} 
+          onPress={pickImage}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="image-plus" size={40} color="#fff" />
+          <Text style={styles.uploadButtonText}>Select Image</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.imagePreviewContainer}>
+          <View style={styles.imageWrapper}>
+            <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+          </View>
+          <View style={styles.imageActionButtons}>
+            <TouchableOpacity 
+              style={styles.changeImageButton} 
+              onPress={pickImage}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.changeImageText}>Change</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.analyzeButton} 
+              onPress={uploadImage}
+              disabled={imageLoading}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.analyzeButtonText}>
+                {imageLoading ? "Analyzing..." : "Analyze"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
-      {loading && <ActivityIndicator size="large" color="#1E90FF" style={styles.loader} />}
+      {imageLoading && (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loaderText}>Analyzing image...</Text>
+        </View>
+      )}
 
       {error && (
         <View style={styles.errorContainer}>
+          <MaterialCommunityIcons name="alert-circle" size={24} color="#D32F2F" />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
       {predictionResult && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Analysis Result:</Text>
-          <Text style={styles.resultText}>Prediction: {predictionResult.message}</Text>
-          <Text style={styles.resultText}>Explanation: {predictionResult.explanation}</Text>
+        <View style={styles.predictionContainer}>
+          <View style={styles.predictionHeader}>
+            <MaterialCommunityIcons 
+              name={predictionResult.message.toLowerCase().includes("safe") ? "check-circle" : "alert-circle"} 
+              size={28} 
+              color={predictionResult.message.toLowerCase().includes("safe") ? "#4CAF50" : "#FF9800"} 
+            />
+            <Text style={[
+              styles.predictionTitle,
+              {color: predictionResult.message.toLowerCase().includes("safe") ? "#4CAF50" : "#FF9800"}
+            ]}>
+              {predictionResult.message}
+            </Text>
+          </View>
+          
+          <Text style={styles.explanationText}>{predictionResult.explanation}</Text>
+          
           {predictionResult.nutrition_data && Object.keys(predictionResult.nutrition_data).length > 0 && (
             <>
-              <Text style={styles.nutritionTitle}>Extracted Nutrition Data:</Text>
-              {Object.entries(predictionResult.nutrition_data).map(([key, value]) => (
-                <Text key={key} style={styles.nutritionText}>
-                  {key}: {value.value} {value.unit}
-                </Text>
-              ))}
+              <Text style={styles.nutritionDataTitle}>Extracted Nutrition Data:</Text>
+              <View style={styles.nutritionDataGrid}>
+                {Object.entries(predictionResult.nutrition_data).map(([key, value], index) => (
+                  <View key={key} style={styles.nutritionDataItem}>
+                    <Text style={styles.nutritionDataLabel}>{key}</Text>
+                    <Text style={styles.nutritionDataValue}>
+                      {value.value} {value.unit}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </>
+          )}
+
+          {predictionResult.alternatives && predictionResult.alternatives.length > 0 && (
+            <View style={styles.alternativesContainer}>
+              <Text style={styles.alternativesTitle}>Healthier Alternatives:</Text>
+              {predictionResult.alternatives.map((alternative, index) => (
+                <View key={index} style={styles.alternativeCard}>
+                  <View style={styles.alternativeHeader}>
+                    <Text style={styles.alternativeBrand}>{alternative["Brand Name"]}</Text>
+                    <View style={[
+                      styles.categoryBadge,
+                      {backgroundColor: alternative.Category.toLowerCase().includes('safe') ? '#4CAF50' : '#FF9800'}
+                    ]}>
+                      <Text style={styles.categoryText}>{alternative.Category}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.nutrientGrid}>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Energy</Text>
+                      <Text style={styles.nutrientValue}>{alternative["ENERGY(kcal)"]} kcal</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Protein</Text>
+                      <Text style={styles.nutrientValue}>{alternative["PROTEIN"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Carbs</Text>
+                      <Text style={styles.nutrientValue}>{alternative["CARBOHYDRATE"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Fat</Text>
+                      <Text style={styles.nutrientValue}>{alternative["TOTAL FAT"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Sugars</Text>
+                      <Text style={styles.nutrientValue}>{alternative["TOTAL SUGARS"]} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Sodium</Text>
+                      <Text style={styles.nutrientValue}>{alternative["SODIUM(mg)"]} mg</Text>
+                    </View>
+                  </View>
+
+                  {alternative.img && (
+                    <Image 
+                      source={{ uri: alternative.img }} 
+                      style={styles.alternativeImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
           )}
         </View>
       )}
-    </View>
+    </Animated.ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  tabContent: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
+    padding: 16,
   },
-  title: {
+  imageTabContainer: {
+    alignItems: "center",
+    paddingBottom: 24,
+  },
+  imageTabTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 20,
     color: "#333",
+    marginBottom: 8,
+    textAlign: "center",
   },
-  image: {
+  imageTabSubtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  uploadButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
     width: 200,
-    height: 200,
+    height: 160,
+    justifyContent: "center",
+    alignItems: "center",
     marginVertical: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#ccc",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  loader: {
+  uploadButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 18,
+    marginTop: 12,
+  },
+  imagePreviewContainer: {
+    alignItems: "center",
+    width: "100%",
+    marginVertical: 20,
+  },
+  imageWrapper: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    borderRadius: 12,
+  },
+  previewImage: {
+    width: 280,
+    height: 280,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+  },
+  imageActionButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    width: "100%",
+    marginTop: 16,
+  },
+  changeImageButton: {
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#4CAF50",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginRight: 12,
+  },
+  changeImageText: {
+    color: "#4CAF50",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  analyzeButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  analyzeButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loaderText: {
     marginTop: 10,
+    fontSize: 16,
+    color: "#666",
   },
   errorContainer: {
-    marginTop: 20,
-    backgroundColor: "#ffe0e0",
-    padding: 15,
-    borderRadius: 5,
-    borderColor: "#ffc0c0",
-    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFEBEE",
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 16,
+    width: "90%",
   },
   errorText: {
-    color: "#d32f2f",
+    color: "#D32F2F",
+    marginLeft: 8,
+    flex: 1,
   },
-  resultContainer: {
+  predictionContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 20,
+    width: "90%",
     marginTop: 20,
-    padding: 15,
-    borderRadius: 5,
-    backgroundColor: "#e0f7fa",
-    borderColor: "#b2ebf2",
-    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  resultTitle: {
+  predictionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  predictionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  explanationText: {
+    fontSize: 16,
+    color: "#555",
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  nutritionDataTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 10,
-    color: "#0277bd",
+    color: "#333",
+    marginTop: 8,
+    marginBottom: 12,
   },
-  resultText: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: "#1976d2",
+  nutritionDataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
-  nutritionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 10,
-    color: "#388e3c",
+  nutritionDataItem: {
+    width: "50%",
+    paddingVertical: 8,
+    paddingRight: 8,
   },
-  nutritionText: {
+  nutritionDataLabel: {
     fontSize: 14,
-    color: "#43a047",
+    color: "#666",
+  },
+  nutritionDataValue: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  alternativesContainer: {
+    marginTop: 24,
+    width: "100%",
+  },
+  alternativesTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 16,
+  },
+  alternativeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  alternativeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  alternativeBrand: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    flex: 1,
+  },
+  categoryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  categoryText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  nutrientGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+  },
+  nutrientItem: {
+    width: "50%",
+    paddingVertical: 6,
+    paddingRight: 8,
+  },
+  nutrientLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  nutrientValue: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  alternativeImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    marginTop: 12,
   },
 });
 
-export default ImageUploadScreen;
+export default ScanComponent;

@@ -1,182 +1,299 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
-  Image,
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ActivityIndicator,
   FlatList,
   StyleSheet,
+  Image,
+  Platform,
+  Alert,
+  Animated,
+  Dimensions,
 } from "react-native";
 import axios from "axios";
 
-const Search = () => {
+const SEARCH_API_URL = 'http://192.168.178.249:3000';
+const API_TIMEOUT = 5000;
+
+const SearchComponent = () => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const handleSearch = async () => {
-    //if (!query) return;
     if (!query.trim()) return;
-    setLoading(true);
+    setSearchLoading(true);
+    setSearchResults([]);
     try {
-      //const data = await axios.post(`127.0.0.1:3000/products/search`,{ query });
-      const data = await axios.post(
-        `http://192.168.232.249:3000/products/search`,
-        { query }
+      console.log('Making search request to:', `${SEARCH_API_URL}/products/search`);
+      const response = await axios.post(
+        `${SEARCH_API_URL}/products/search`, 
+        { query },
+        {
+          timeout: API_TIMEOUT,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
       );
-      console.log(data.data);
-      setResults(data.data.data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      alert("Failed to fetch data. Please check your internet connection.");
+      
+      if (response.data && response.data.data) {
+        console.log('Search results count:', response.data.data.length);
+        setSearchResults(response.data.data);
+      } else {
+        console.error('Invalid search response format:', response.data);
+        Alert.alert(
+          "Search Error", 
+          "Received invalid data format from server. Please try again."
+        );
+      }
+    } catch (error: any) {
+      console.error("Search error:", error);
+      let errorMessage = 'Failed to fetch search results. ';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. ';
+      } else if (error.response) {
+        errorMessage += `Server error: ${error.response.status}. `;
+      } else if (error.request) {
+        errorMessage += 'No response from server. ';
+      } else {
+        errorMessage += error.message;
+      }
+      Alert.alert("Search Failed", errorMessage + "Please try again.");
     } finally {
-      setLoading(false);
+      setSearchLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={styles.tabContent}>
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.input}
+          style={styles.searchInput}
           placeholder="Search for a food item..."
           value={query}
           onChangeText={setQuery}
+          placeholderTextColor="#888"
         />
-        <Button
-          title={loading ? "Searching..." : "Search"}
+        <TouchableOpacity
+          style={styles.searchButton}
           onPress={handleSearch}
-          disabled={loading}
-        />
+          disabled={searchLoading}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.buttonText}>
+            {searchLoading ? "Searching..." : "Search"}
+          </Text>
+        </TouchableOpacity>
       </View>
-      {loading && <ActivityIndicator size="large" color="#0000ff" />}
-      <FlatList
-        data={results}
-        // keyExtractor={(index) => index.toString()}
-        keyExtractor={(item, index) => `${item["Brand Name"]}_${index}`}
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            {/* Left half – Text Info */}
-            <View style={styles.leftColumn}>
-              <View style={styles.card}>
-                <Text style={styles.nutrient}>
-                  Brand: {item["Brand Name"] ?? "N/A"}
-                </Text>
-                <Text style={styles.nutrient}>
-                  Energy: {item["ENERGY(kcal)"] ?? "N/A"} kcal
-                </Text>
-                <Text style={styles.nutrient}>
-                  Protein: {item["PROTEIN"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Carbohydrates: {item["CARBOHYDRATE"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Added Sugars: {item["ADDED SUGARS"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Total Sugars: {item["TOTAL SUGARS"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Total Fat: {item["TOTAL FAT"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Saturated Fat: {item["SATURATED FAT"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Trans Fat: {item["TRANS FAT"] ?? "N/A"} g
-                </Text>
-                <Text style={styles.nutrient}>
-                  Cholesterol: {item["CHOLESTEROL(mg)"] ?? "N/A"} mg
-                </Text>
-                <Text style={styles.nutrient}>
-                  Sodium: {item["SODIUM(mg)"] ?? "N/A"} mg
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.rightColumn}>
-              {item["img"] ? (
-                <Image
-                  source={{ uri: item["img"] }}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={styles.nutrient}>Image: N/A</Text>
-              )}
-            </View>
-          </View>
-        )}
-      />
-    </View>
+      {searchLoading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+        </View>
+      ) : (
+        <FlatList
+          data={searchResults}
+          keyExtractor={(item, index) => `${item["Brand Name"] || "item"}_${index}`}
+          renderItem={({ item, index }) => {
+            const itemOpacity = new Animated.Value(0);
+            const itemTranslateY = new Animated.Value(50);
+            
+            Animated.parallel([
+              Animated.timing(itemOpacity, {
+                toValue: 1,
+                duration: 300,
+                delay: index * 100,
+                useNativeDriver: true
+              }),
+              Animated.timing(itemTranslateY, {
+                toValue: 0,
+                duration: 300,
+                delay: index * 100,
+                useNativeDriver: true
+              })
+            ]).start();
+            
+            return (
+              <View 
+                style={[
+                  styles.resultCard, 
+                  { 
+                    opacity: itemOpacity,
+                    transform: [{ translateY: itemTranslateY }],
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }
+                ]}
+              >
+                <View style={{ flex: 2, paddingRight: 10 }}>
+                  <Text style={styles.brandName}>{item["Brand Name"] ?? "Unknown Brand"}</Text>
+                  <View style={styles.divider} />
+
+                  <View style={styles.nutrientGrid}>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Energy</Text>
+                      <Text style={styles.nutrientValue}>{item["ENERGY(kcal)"] ?? "N/A"} kcal</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Protein</Text>
+                      <Text style={styles.nutrientValue}>{item["PROTEIN"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Carbs</Text>
+                      <Text style={styles.nutrientValue}>{item["CARBOHYDRATE"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Fat</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL FAT"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Total Sugars</Text>
+                      <Text style={styles.nutrientValue}>{item["TOTAL SUGARS"] ?? "N/A"} g</Text>
+                    </View>
+                    <View style={styles.nutrientItem}>
+                      <Text style={styles.nutrientLabel}>Sodium</Text>
+                      <Text style={styles.nutrientValue}>{item["SODIUM(mg)"] ?? "N/A"} mg</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  {item["img"] ? (
+                    <Image
+                      source={{ uri: item["img"] }}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.nutrient}>Image: N/A</Text>
+                  )}
+                </View>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            query.trim() ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No results found</Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  tabContent: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#fff",
   },
   searchContainer: {
     flexDirection: "row",
-    alignItems: "center",
     marginBottom: 16,
   },
-  input: {
+  searchInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 8,
-    marginRight: 8,
-    borderRadius: 5,
-  },
-  card: {
-    padding: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fff",
     borderRadius: 8,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginRight: 8,
+  },
+  searchButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  resultCard: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
-  name: {
+  brandName: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginVertical: 8,
+  },
+  nutrientGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+  },
+  nutrientItem: {
+    width: "50%",
+    paddingVertical: 6,
+    paddingRight: 8,
+  },
+  nutrientLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  nutrientValue: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
   },
   nutrient: {
     fontSize: 14,
     color: "#666",
     marginBottom: 4,
   },
-  row: {
-    flexDirection: "row",
-    marginVertical: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-  },
-  leftColumn: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  rightColumn: {
-    flex: 1,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
   image: {
     width: 300,
     height: 300,
-    paddingRight: 50,
     borderRadius: 8,
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
   },
 });
 
-export default Search;
+export default SearchComponent;
