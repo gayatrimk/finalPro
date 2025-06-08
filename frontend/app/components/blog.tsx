@@ -11,6 +11,7 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  Alert,
 } from "react-native";
 import axios from "axios";
 import { MaterialCommunityIcons } from "@expo/vector-icons";

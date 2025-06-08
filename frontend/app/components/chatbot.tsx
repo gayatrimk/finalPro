@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../../css/chatbot.css';
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from 'expo-router';
 import {
     View,
     Text,
@@ -19,6 +20,8 @@ import {
     Dimensions,
     KeyboardAvoidingView,
   } from "react-native";
+
+const API_URL = Platform.OS === 'android' ? 'http://192.168.178.249:5000' : 'http://127.0.0.1:5000';
 
 const Chatbot = () => {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
@@ -68,17 +71,54 @@ const Chatbot = () => {
     setInput('');
 
     try {
-      const res = await fetch('http://127.0.0.1:5000/chat', {
+      console.log('Sending request to:', `${API_URL}/chat`);
+      const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ message: textToSend }),
       });
 
+      console.log('Response status:', res.status);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
-      setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
-    } catch (err) {
-      console.error(err);
-      setMessages([...newMessages, { role: 'assistant', content: 'Error connecting to the server.' }]);
+      //console.log('Response data:', data);
+      
+      if (data.reply) {
+        setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
+      } else {
+        throw new Error('No reply in response data');
+      }
+    } catch (error: any) {
+      console.error('Detailed error:', error);
+      console.error('Error type:', error.name);
+      console.error('Error message:', error.message);
+      
+      let errorMessage = 'Error connecting to the server. ';
+      if (error.message.includes('Network request failed')) {
+        errorMessage += 'Network connection failed. Please check your internet connection.';
+      } else if (error.message.includes('HTTP error')) {
+        errorMessage += 'Server returned an error. Please try again.';
+      } else if (error.message.includes('No reply')) {
+        errorMessage += 'Invalid response from server.';
+      } else {
+        errorMessage += 'Please check your connection and try again.';
+      }
+
+      Alert.alert(
+        'Connection Error',
+        errorMessage,
+        [{ text: 'OK', onPress: () => console.log('Alert closed') }]
+      );
+
+      setMessages([...newMessages, { role: 'assistant', content: errorMessage }]);
     } finally {
       setLoading(false);
     }
@@ -169,38 +209,46 @@ const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: "#f5f5f5",
-      paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight : 0,
+      width: Platform.OS === 'android' ? '75%' : '100%',
+      alignSelf: 'center',
+      marginLeft: Platform.OS === 'android' ? 120 : 0,
+      marginRight: Platform.OS === 'android' ? 5 : 0,
     },
     chatContainer: {
       flex: 1,
-      paddingHorizontal: 12,
+      paddingHorizontal: Platform.OS === 'android' ? 8 : 12,
       paddingBottom: 8,
+      width: '100%',
     },
     chatHeader: {
-      padding: 12,
+      padding: Platform.OS === 'android' ? 8 : 12,
       borderBottomWidth: 1,
       borderBottomColor: '#e0e0e0',
       backgroundColor: '#f8f9fa',
+      width: '100%',
+      alignItems: 'center',
     },
     chatHeaderText: {
-      fontSize: 16,
+      fontSize: Platform.OS === 'android' ? 16 : 16,
       fontWeight: '600',
       color: '#2c3e50',
       textAlign: 'center',
     },
     chatSubHeaderText: {
-      fontSize: 14,
+      fontSize: Platform.OS === 'android' ? 14 : 14,
       color: '#999',
       textAlign: 'center',
     },
     messagesContainer: {
       flex: 1,
       marginBottom: 8,
+      width: '100%',
+      paddingLeft: Platform.OS === 'android' ? 8 : 0,
     },
     messageWrapper: {
-      maxWidth: '75%',
+      maxWidth: Platform.OS === 'android' ? '75%' : '75%',
       marginVertical: 3,
-      padding: 10,
+      padding: Platform.OS === 'android' ? 8 : 10,
       borderRadius: 12,
     },
     userMessage: {
@@ -210,9 +258,10 @@ const styles = StyleSheet.create({
     assistantMessage: {
       alignSelf: 'flex-start',
       backgroundColor: '#f0f0f0',
+      marginLeft: Platform.OS === 'android' ? 8 : 0,
     },
     messageText: {
-      fontSize: 14,
+      fontSize: Platform.OS === 'android' ? 14 : 14,
       color: '#333',
     },
     userMessageText: {
@@ -226,7 +275,7 @@ const styles = StyleSheet.create({
       alignItems: 'center',
     },
     loadingText: {
-      fontSize: 14,
+      fontSize: Platform.OS === 'android' ? 14 : 14,
       color: '#999',
     },
     inputContainer: {
@@ -235,40 +284,45 @@ const styles = StyleSheet.create({
       borderTopWidth: 1,
       borderTopColor: '#e0e0e0',
       paddingTop: 6,
-      paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 6,
+      width: '100%',
+      paddingLeft: Platform.OS === 'android' ? 8 : 0,
     },
     input: {
       flex: 1,
-      minHeight: 36,
+      minHeight: Platform.OS === 'android' ? 32 : 36,
       maxHeight: 80,
       backgroundColor: '#f5f5f5',
       borderRadius: 18,
-      paddingHorizontal: 12,
+      paddingHorizontal: Platform.OS === 'android' ? 8 : 12,
       paddingVertical: 6,
       marginRight: 6,
-      fontSize: 14,
+      fontSize: Platform.OS === 'android' ? 14 : 14,
     },
     sendButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: Platform.OS === 'android' ? 32 : 36,
+      height: Platform.OS === 'android' ? 32 : 36,
+      borderRadius: Platform.OS === 'android' ? 16 : 18,
       backgroundColor: '#fff',
       justifyContent: 'center',
       alignItems: 'center',
     },
     sampleQuestionsContainer: {
-      padding: 10,
+      padding: Platform.OS === 'android' ? 8 : 10,
       gap: 8,
+      width: '100%',
+      paddingLeft: Platform.OS === 'android' ? 8 : 0,
     },
     sampleQuestionButton: {
       backgroundColor: '#f0f0f0',
-      padding: 10,
+      padding: Platform.OS === 'android' ? 8 : 10,
       borderRadius: 15,
       borderWidth: 1,
       borderColor: '#e0e0e0',
+      width: '100%',
     },
     sampleQuestionText: {
-      fontSize: 14,
+      fontSize: Platform.OS === 'android' ? 14 : 14,
       color: '#666',
       textAlign: 'left',
     },

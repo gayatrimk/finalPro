@@ -16,8 +16,8 @@ import axios from "axios";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // Add API URL configuration
-const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5002' : 'http://192.168.178.249:5002';
-const API_TIMEOUT = 5000;
+const API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:5001' : 'http://192.168.88.249:5001';
+const API_TIMEOUT = 10000; // Increased timeout to 10 seconds
 
 interface NutritionValue {
   value: number | null;
@@ -40,6 +40,18 @@ interface PredictionResult {
     "img": string | null;
   }>;
 }
+
+// Add a function to test the API connection
+const testApiConnection = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/ocr`, { timeout: API_TIMEOUT });
+    console.log('🟢 API connection successful:', response.data.message);
+    return true;
+  } catch (error: any) {
+    console.log('🔴 API connection failed:', error.message);
+    return false;
+  }
+};
 
 const ScanComponent = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -91,6 +103,9 @@ const ScanComponent = () => {
     setPredictionResult(null);
 
     try {
+      // Test API connection first
+      console.log(`📡 Attempting to connect to API at: ${API_URL}`);
+      
       const formData = new FormData();
       
       if (Platform.OS === 'web' && selectedImage.startsWith('data:')) {
@@ -101,7 +116,7 @@ const ScanComponent = () => {
         const fileBlob = base64toBlob(base64Data, contentType);
         formData.append('image', fileBlob, 'upload.jpg');
       } else {
-        // Handle mobile platforms
+        // Handle mobile platforms (Expo Go)
         const localUri = selectedImage;
         const filename = localUri.split('/').pop();
         
@@ -109,24 +124,27 @@ const ScanComponent = () => {
         const match = /\.(\w+)$/.exec(filename || '');
         const type = match ? `image/${match[1]}` : 'image/jpeg';
         
-        formData.append('image', {
+        // Create the file object for Expo Go
+        const file = {
           uri: localUri,
           name: filename || 'upload.jpg',
-          type,
-        } as any);
+          type: type,
+        } as any; // Type assertion needed for React Native FormData
+        
+        formData.append('image', file);
       }
 
-      console.log("✅ Selected Image URI:", selectedImage);
-      console.log("✅ FormData prepared for upload");
+      console.log("📱 Platform:", Platform.OS);
+      console.log("🌐 API URL:", API_URL);
+      console.log("📸 Selected Image URI:", selectedImage);
+      console.log("📦 FormData prepared for upload");
 
       const response = await axios.post(`${API_URL}/ocr`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Accept': 'application/json',
         },
-        transformRequest: (data, headers) => {
-          return formData;
-        },
+        timeout: API_TIMEOUT,
       });
 
       console.log("✅ Request sent to backend");
@@ -139,9 +157,22 @@ const ScanComponent = () => {
         setError("Failed to process image. Please try again.");
       }
     } catch (error: any) {
-      console.error("Upload error:", error);
+      console.error("Upload error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+      });
+      
       let errorMessage = "Upload failed: ";
-      if (error.response) {
+      if (error.message === "Network Error") {
+        errorMessage += "Could not connect to the server. Please check:\n\n" +
+                       "1. Your backend server is running (python ocr.py)\n" +
+                       "2. Your phone and computer are on the same WiFi network\n" +
+                       "3. The IP address is correct (currently: " + API_URL + ")\n" +
+                       "4. Your computer's firewall isn't blocking the connection\n\n" +
+                       "Try opening " + API_URL + " in your computer's browser to test the connection.";
+      } else if (error.response) {
         errorMessage += error.response.data?.error || error.response.data?.message || error.message;
       } else if (error.request) {
         errorMessage += "No response from server. Please check your connection.";

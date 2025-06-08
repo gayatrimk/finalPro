@@ -63,10 +63,13 @@ const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
   const cookieOptions = {
-    expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + (90 * 24 * 60 * 60 * 1000)),
+
     httpOnly: true, // prevents XSS attacks
     secure: process.env.NODE_ENV === 'production' // only https in production
   };
+
+  console.log('Expires at:', new Date(Date.now() + (90 * 24 * 60 * 60 * 1000)));
 
   res.cookie('jwt', token, cookieOptions);
 
@@ -77,6 +80,7 @@ const createSendToken = (user, statusCode, res) => {
     status: 'success',
     token,
     data: {
+      
       user
     }
   });
