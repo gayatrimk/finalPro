@@ -12,7 +12,11 @@ const productSchema = new mongoose.Schema({
     "TRANS FAT":Number,
     "CHOLESTEROL(mg)":Number,
     "SODIUM(mg)":Number,
+    "Dietary Fiber":Number,
+    "Mono Unsaturated Fatty Acids":Number,
+    "Poly Unsaturated Fatty Acids":Number,
+    "Category":String,
 });
 
-const products = mongoose.model("products", productSchema);
+const products = mongoose.model("label_products", productSchema);
 module.exports = products;

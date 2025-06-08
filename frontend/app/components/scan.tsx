@@ -226,7 +226,7 @@ const ScanComponent = () => {
           formData.append('image', fileBlob, 'upload.jpg');
         }
       } else {
-        // Handle mobile platforms
+        // Handle mobile platforms (Expo Go)
         const localUri = selectedImage;
         const filename = localUri.split('/').pop();
         
@@ -264,7 +264,13 @@ const ScanComponent = () => {
         setError("Failed to process image. Please try again.");
       }
     } catch (error: any) {
-      console.error("Upload error:", error);
+      console.error("Upload error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+      });
+      
       let errorMessage = "Upload failed: ";
       
       if (error.response) {
